@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>夢遊先生 · Mr. Sleepwalker</title>
+  <meta name="description" content="向 1999 年 Sarbakan《Good Night Mr. Snoozleberg》致敬的網頁解謎小遊戲。移動場景物件，引導夢遊先生平安走下樓。">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+  <div id="game">
+    <canvas id="cv" width="960" height="620"></canvas>
+
+    <!-- 上方資訊列 -->
+    <div id="topbar">
+      <div class="tb-left">
+        <span id="chapter" class="chapter"></span>
+        <span id="lvname" class="lvname"></span>
+      </div>
+      <div id="hintline" class="hintline"></div>
+    </div>
+
+    <!-- 下方控制列 -->
+    <div id="controls">
+      <button id="btnStart" class="btn primary">放他走 ▶</button>
+      <button id="btnReset" class="btn">重來</button>
+      <button id="btnHint" class="btn">提示</button>
+      <button id="btnMenu" class="btn">選關</button>
+      <button id="btnSound" class="btn">♪ 開</button>
+    </div>
+
+    <!-- 標題畫面 -->
+    <div id="titleScreen" class="overlay show">
+      <div class="panel title-panel">
+        <div class="moon-deco"></div>
+        <h1 class="title-zh">夢遊先生</h1>
+        <p class="title-en">Mr. Sleepwalker</p>
+        <p class="title-desc">夜深了，夢遊先生閉著眼睛從床上爬起，搖搖晃晃往前走。<br>
+          你不能直接控制他——只能<b>移動場景裡的物件</b>，鋪出一條安全的路，<br>
+          別讓他摔下去、也別讓他被嚇醒，把他平安送到出口。</p>
+        <div class="title-btns">
+          <button id="btnPlay" class="btn primary big">從第一關開始</button>
+          <button id="btnPlayResume" class="btn big" style="display:none">繼續上次進度</button>
+          <button id="btnSelectFromTitle" class="btn big">選關</button>
+        </div>
+        <p class="credit">向 1999 年 Sarbakan《Good Night Mr. Snoozleberg》致敬的重新詮釋作品。<br>
+          100 天 Vibe Coding 馬拉松 · Day 1</p>
+      </div>
+    </div>
+
+    <!-- 選關畫面 -->
+    <div id="levelSelectScreen" class="overlay">
+      <div class="panel">
+        <h2>選擇關卡</h2>
+        <div id="lvGrid" class="lv-grid"></div>
+        <button id="btnCloseSelect" class="btn">關閉</button>
+      </div>
+    </div>
+
+    <!-- 過關 -->
+    <div id="winScreen" class="overlay">
+      <div class="panel small">
+        <h2 id="winText">過關！</h2>
+        <p id="winSub" class="sub"></p>
+        <button id="btnNext" class="btn primary big">下一關 →</button>
+      </div>
+    </div>
+
+    <!-- 失敗 -->
+    <div id="loseScreen" class="overlay">
+      <div class="panel small">
+        <h2 id="loseText" class="lose-title">先生醒了！</h2>
+        <p class="sub">調整一下物件，再試一次。</p>
+        <button id="btnRetry" class="btn primary big">再試一次</button>
+      </div>
+    </div>
+
+    <!-- 結局 -->
+    <div id="finaleScreen" class="overlay">
+      <div class="panel">
+        <div class="moon-deco"></div>
+        <h2>天亮了 ☀</h2>
+        <p class="title-desc">你成功引導夢遊先生走完了每一個夜晚，<br>
+          他從沒摔醒，安穩地回到了床上。<br>恭喜全破！</p>
+        <button id="btnFinaleMenu" class="btn primary big">回到選關</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rotateHint">
+    <div class="rotate-inner">
+      <div class="rotate-icon">↻</div>
+      <h2>請把手機轉成橫向</h2>
+      <p>夢遊先生是橫向遊戲，橫拿螢幕比較好玩。</p>
+    </div>
+  </div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/levels.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
