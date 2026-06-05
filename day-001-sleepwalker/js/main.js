@@ -41,6 +41,12 @@
   function ensureAudio() {
     if (!audioCtx && window.AudioContext) audioCtx = new AudioContext();
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioCtx && window.SleepwalkerMusic) window.SleepwalkerMusic.attach(audioCtx);
+  }
+  function musicSync() {
+    if (!window.SleepwalkerMusic) return;
+    if (soundOn && audioCtx) window.SleepwalkerMusic.start();
+    else window.SleepwalkerMusic.stop();
   }
   function beep(freq, dur, type, vol, when) {
     if (!soundOn || !audioCtx) return;
@@ -97,6 +103,7 @@
     hideOverlay('all');
     updateTopbar();
     updateControls();
+    musicSync();
   }
   function startWalk() {
     if (!game || game.state !== 'ready') return;
@@ -214,8 +221,10 @@
     var lv = LEVELS[currentIndex];
     Sprites.drawBackground(ctx, lv, W, H, time);
     Sprites.drawSolids(ctx, game.staticSolids);
+    game.movers.forEach(function (mv) { Sprites.drawMover(ctx, mv); });
     Sprites.drawBed(ctx, lv.bed);
     game.hazards.forEach(function (hz) { Sprites.drawHazard(ctx, hz, time); });
+    game.portals.forEach(function (pt) { Sprites.drawPortal(ctx, pt, time); });
     Sprites.drawExit(ctx, game.exit, time);
 
     // 提示：解法位置的虛影
@@ -280,7 +289,7 @@
     $('btnMenu').addEventListener('click', function () { sndClick(); buildLevelSelect(); showOverlay('levelSelect'); });
     $('btnSound').addEventListener('click', function () {
       soundOn = !soundOn; localStorage.setItem(SOUND_KEY, soundOn ? 'on' : 'off');
-      ensureAudio(); sndClick(); updateControls();
+      ensureAudio(); updateControls(); musicSync(); if (soundOn) sndClick();
     });
 
     $('btnPlay').addEventListener('click', function () { ensureAudio(); sndClick(); hideOverlay('title'); loadLevel(0); });

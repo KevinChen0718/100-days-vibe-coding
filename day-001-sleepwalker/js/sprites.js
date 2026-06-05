@@ -296,10 +296,15 @@
     ctx.fill();
 
     ctx.translate(cx, top);
+    // 夢遊飄忽：以腳為軸緩慢左右搖晃
+    ctx.translate(0, WH);
+    ctx.rotate(Math.sin(time * 0.0026 + cx * 0.012) * 0.05);
+    ctx.translate(0, -WH);
     ctx.scale(face, 1);   // 依面向翻轉
 
     var swing = moving ? Math.sin(w.walkAnim) : 0;
-    var bob = moving ? Math.abs(Math.sin(w.walkAnim)) * 1.5 : 0;
+    var bob = (moving ? Math.abs(Math.sin(w.walkAnim)) * 1.2 : 0)
+            + Math.sin(time * 0.0021) * 1.0;   // 連靜止時也有夢遊的微微起伏
     var oy = -bob;
 
     // 腿
@@ -387,6 +392,86 @@
     }
   }
 
+  function hexA(hex, a) {
+    var h = hex.replace('#', '');
+    var r = parseInt(h.substring(0, 2), 16);
+    var g = parseInt(h.substring(2, 4), 16);
+    var b = parseInt(h.substring(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
+  // ---- 傳送門（會發光的窗／下水道口）----
+  function drawPortal(ctx, p, time) {
+    var cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    var col = p.color || '#9b8cff';
+    var rx = p.w / 2, ry = p.h / 2;
+
+    // 外圈光暈
+    var pulse = 0.45 + 0.2 * Math.sin(time * 0.005);
+    var g = ctx.createRadialGradient(cx, cy, 2, cx, cy, p.w * 1.8);
+    g.addColorStop(0, hexA(col, pulse));
+    g.addColorStop(1, hexA(col, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - p.w * 1.8, cy - p.w * 1.8, p.w * 3.6, p.w * 3.6);
+
+    // 門框
+    ctx.fillStyle = 'rgba(18,16,34,0.92)';
+    roundRect(ctx, p.x - 4, p.y - 4, p.w + 8, p.h + 8, 14); ctx.fill();
+
+    // 漩渦表面
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.clip();
+    var sg = ctx.createLinearGradient(cx, p.y, cx, p.y + p.h);
+    sg.addColorStop(0, hexA(col, 0.85));
+    sg.addColorStop(0.5, 'rgba(10,8,24,0.95)');
+    sg.addColorStop(1, hexA(col, 0.85));
+    ctx.fillStyle = sg;
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    // 旋轉的漩渦線
+    ctx.strokeStyle = hexA(col, 0.6);
+    ctx.lineWidth = 2;
+    for (var i = 1; i <= 3; i++) {
+      var rr = (ry) * (i / 3.5);
+      var rot = time * 0.02 * (i % 2 ? 1 : -1);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rr * 0.7, rr, rot, 0, Math.PI * 1.6);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 亮邊
+    ctx.strokeStyle = hexA(col, 0.95);
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 環繞光點
+    for (var k = 0; k < 3; k++) {
+      var ang = time * 0.04 + k * Math.PI * 2 / 3;
+      var px = cx + Math.cos(ang) * (rx + 4);
+      var py = cy + Math.sin(ang) * (ry + 4);
+      ctx.fillStyle = hexA(col, 0.9);
+      ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ---- 移動平台 / 升降梯 ----
+  function drawMover(ctx, m) {
+    var g = ctx.createLinearGradient(0, m.y, 0, m.y + m.h);
+    g.addColorStop(0, '#8a93a6'); g.addColorStop(1, '#566072');
+    ctx.fillStyle = g;
+    roundRect(ctx, m.x, m.y, m.w, m.h, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(m.x + 3, m.y + 2, m.w - 6, 3);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    for (var x = m.x + 10; x < m.x + m.w - 6; x += 18) {
+      ctx.beginPath(); ctx.arc(x, m.y + m.h - 5, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
   root.SleepwalkerSprites = {
     drawBackground: drawBackground,
     drawSolids: drawSolids,
@@ -394,6 +479,8 @@
     drawExit: drawExit,
     drawHazard: drawHazard,
     drawMovable: drawMovable,
+    drawPortal: drawPortal,
+    drawMover: drawMover,
     drawWalker: drawWalker,
     roundRect: roundRect
   };
