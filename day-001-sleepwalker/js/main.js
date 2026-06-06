@@ -108,8 +108,7 @@
   function startWalk() {
     if (!game || game.state !== 'ready') return;
     ensureAudio();
-    drag.id = null; hoverId = null;   // 放走的瞬間取消任何拖曳，之後鎖定道具
-    game.start();
+    game.start();   // 放走後仍可即時移動「還沒被先生碰到」的道具
     updateControls();
   }
   function resetLevel() {
@@ -221,7 +220,7 @@
     }
     var lv = LEVELS[currentIndex];
     Sprites.drawBackground(ctx, lv, W, H, time);
-    Sprites.drawSolids(ctx, game.staticSolids);
+    Sprites.drawSolids(ctx, game.staticSolids, W, H);
     game.movers.forEach(function (mv) { Sprites.drawMover(ctx, mv); });
     Sprites.drawBed(ctx, lv.bed);
     game.hazards.forEach(function (hz) { Sprites.drawHazard(ctx, hz, time); });
@@ -248,12 +247,17 @@
   }
 
   // ---- 輸入 ----
+  function movableById(id) {
+    if (!game) return null;
+    for (var i = 0; i < game.movables.length; i++) if (game.movables[i].id === id) return game.movables[i];
+    return null;
+  }
   function pointerDown(e) {
     if (appState !== 'playing' || !game) return;
-    if (game.state !== 'ready') return;   // 只有「放他走」之前能擺道具；放走後鎖定
+    if (game.state === 'won' || game.state === 'lost') return;
     var p = clientToWorld(e.clientX, e.clientY);
     var m = game.movableAt(p.x, p.y);
-    if (m) {
+    if (m && !m.locked) {        // 被先生碰過的道具已固定、不能再抓
       ensureAudio();
       drag.id = m.id;
       drag.offx = p.x - m.x;
@@ -266,12 +270,14 @@
     if (appState !== 'playing' || !game) return;
     var p = clientToWorld(e.clientX, e.clientY);
     if (drag.id) {
-      game.setMovable(drag.id, p.x - drag.offx, p.y - drag.offy);
-      e.preventDefault();
-    } else if (game.state === 'ready') {
+      var dm = movableById(drag.id);
+      if (!dm || dm.locked) { drag.id = null; }   // 拖到一半被先生碰到就放手
+      else { game.setMovable(drag.id, p.x - drag.offx, p.y - drag.offy); e.preventDefault(); }
+    } else if (game.state === 'ready' || game.state === 'walking') {
       var m = game.movableAt(p.x, p.y);
-      hoverId = m ? m.id : null;
-      canvas.style.cursor = m ? 'grab' : 'default';
+      var grabbable = m && !m.locked;
+      hoverId = grabbable ? m.id : null;
+      canvas.style.cursor = grabbable ? 'grab' : 'default';
     } else {
       hoverId = null;
       canvas.style.cursor = 'default';

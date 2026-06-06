@@ -71,7 +71,8 @@
         type: m.type,
         x: m.x, y: m.y, w: m.w, h: m.h,
         soft: m.type === 'mattress',
-        spring: m.type === 'spring'
+        spring: m.type === 'spring',
+        locked: false      // 被先生碰到後就固定，不能再拖
       };
     });
     // 移動平台
@@ -169,6 +170,13 @@
     if (this.state !== 'walking') return;
 
     if (w.onGround) w.walkAnim += CONFIG.ANIM_SPEED;
+
+    // 被先生碰到的道具就固定（不能再拖走/反覆挪用，杜絕「拖一塊板子當地板送到底」）
+    var contact = { x: w.x - 3, y: w.y - 3, w: WW + 6, h: WH + 6 };
+    for (var mi = 0; mi < this.movables.length; mi++) {
+      var mo = this.movables[mi];
+      if (!mo.locked && overlap(contact, mo)) mo.locked = true;
+    }
 
     // 傳送門
     if (w.portalCd === 0 && this.portals.length) {
