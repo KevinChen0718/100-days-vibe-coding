@@ -295,17 +295,21 @@
     ctx.ellipse(cx, feet + 2, 16, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.translate(cx, top);
-    // 夢遊飄忽：以腳為軸緩慢左右搖晃
+    // 夢遊飄忽：明顯的左右搖晃（以腳為軸）+ 身體平移擺盪 + 頭部晃動
+    var dreamRot = Math.sin(time * 0.0033 + cx * 0.01) * 0.16
+                 + (moving ? Math.sin(w.walkAnim * 0.5) * 0.05 : 0);   // 約 ±10 度
+    var dreamSway = Math.sin(time * 0.0026 + 1.2) * 6;                 // 身體左右擺
+    ctx.translate(cx + dreamSway, top);
     ctx.translate(0, WH);
-    ctx.rotate(Math.sin(time * 0.0026 + cx * 0.012) * 0.05);
+    ctx.rotate(dreamRot);
     ctx.translate(0, -WH);
     ctx.scale(face, 1);   // 依面向翻轉
 
     var swing = moving ? Math.sin(w.walkAnim) : 0;
-    var bob = (moving ? Math.abs(Math.sin(w.walkAnim)) * 1.2 : 0)
-            + Math.sin(time * 0.0021) * 1.0;   // 連靜止時也有夢遊的微微起伏
+    var bob = (moving ? Math.abs(Math.sin(w.walkAnim)) * 1.4 : 0)
+            + Math.sin(time * 0.003) * 2.2;   // 連靜止時也有夢遊的明顯起伏
     var oy = -bob;
+    var headTilt = Math.sin(time * 0.0029 + 0.6) * 0.12;   // 頭額外點頭晃
 
     // 腿
     ctx.strokeStyle = '#d9d2c4';
@@ -345,8 +349,12 @@
     ctx.beginPath(); ctx.arc(21, bodyTop + 2, 3.2, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(21, bodyTop + 7, 3.2, 0, Math.PI * 2); ctx.fill();
 
-    // 頭
+    // 頭（額外點頭晃動）
     var hcx = 0, hcy = 4 + oy;
+    ctx.save();
+    ctx.translate(hcx, hcy + 6);
+    ctx.rotate(headTilt);
+    ctx.translate(-hcx, -(hcy + 6));
     ctx.fillStyle = '#f6d7b8';
     ctx.beginPath(); ctx.arc(hcx, hcy, 11, 0, Math.PI * 2); ctx.fill();
     // 閉眼（兩道弧）
@@ -373,6 +381,7 @@
     // 帽尖毛球
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(hcx - 25, hcy - 31, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();   // 結束頭部點頭旋轉
 
     ctx.restore();
 

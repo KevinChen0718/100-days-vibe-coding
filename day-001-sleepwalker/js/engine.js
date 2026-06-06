@@ -181,7 +181,8 @@
           if (dest) {
             w.x = dest.x + dest.w / 2 - WW / 2;
             w.y = dest.y + dest.h - WH;
-            w.vy = 0; w.riding = null; w.onGround = false; w.airborne = false;
+            // 從出口冒出來算騰空：之後若墜落會正常計算摔傷（出口在地面則立即落地、無傷）
+            w.vy = 0; w.riding = null; w.onGround = false; w.airborne = true;
             w.peakFeet = w.y + WH;
             if (dest.exitFacing) w.facing = dest.exitFacing;
             w.portalCd = CONFIG.PORTAL_CD;

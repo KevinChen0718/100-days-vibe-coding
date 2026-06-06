@@ -108,6 +108,7 @@
   function startWalk() {
     if (!game || game.state !== 'ready') return;
     ensureAudio();
+    drag.id = null; hoverId = null;   // 放走的瞬間取消任何拖曳，之後鎖定道具
     game.start();
     updateControls();
   }
@@ -249,7 +250,7 @@
   // ---- 輸入 ----
   function pointerDown(e) {
     if (appState !== 'playing' || !game) return;
-    if (game.state === 'won' || game.state === 'lost') return;
+    if (game.state !== 'ready') return;   // 只有「放他走」之前能擺道具；放走後鎖定
     var p = clientToWorld(e.clientX, e.clientY);
     var m = game.movableAt(p.x, p.y);
     if (m) {
@@ -267,10 +268,13 @@
     if (drag.id) {
       game.setMovable(drag.id, p.x - drag.offx, p.y - drag.offy);
       e.preventDefault();
-    } else {
+    } else if (game.state === 'ready') {
       var m = game.movableAt(p.x, p.y);
       hoverId = m ? m.id : null;
       canvas.style.cursor = m ? 'grab' : 'default';
+    } else {
+      hoverId = null;
+      canvas.style.cursor = 'default';
     }
   }
   function pointerUp() {

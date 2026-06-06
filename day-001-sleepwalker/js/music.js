@@ -1,25 +1,29 @@
 /*
  * 夢遊先生 Mr. Sleepwalker — 背景音樂
- * 用 WebAudio 即時生成的慵懶夜曲爵士（無外部音檔），soft pad + 低音 + 稀疏旋律。
- * 向原作「jazzy 背景樂」致敬，但放慢、放軟，配合夢遊的氛圍。
+ * WebAudio 即時生成的「慵懶 lounge jazz 夜曲」（無外部音檔）。
+ * 爵士味來自：走路低音(walking bass) + 2、4 拍和弦點綴(comp) + 固定旋律動機 + 搖擺(swing)。
  */
 (function (root) {
   'use strict';
 
-  var ctx = null, master = null, filter = null, timer = null, playing = false;
+  var ctx = null, master = null, filter = null, delay = null, timer = null, playing = false;
   var nextBar = 0, bar = 0;
-  var BAR = 2.8;           // 一小節秒數（很慢，夢遊感）
-  var MASTER_VOL = 0.13;
-
-  // 夢遊夜曲和聲（mellow ii-V 循環）：每小節一個和弦的高聲部 + 低音根音
-  var CHORDS = [
-    { bass: 41, notes: [53, 57, 60, 64] },  // Fmaj7
-    { bass: 38, notes: [50, 53, 57, 60] },  // Dm7
-    { bass: 43, notes: [55, 58, 62, 65] },  // Gm7
-    { bass: 36, notes: [48, 52, 55, 58] }   // C7 → 回到 F
-  ];
+  var TEMPO = 88;                  // BPM，慵懶
+  var BEAT = 60 / TEMPO;
+  var BAR = BEAT * 4;
+  var SWING = 0.06;                // 搖擺偏移（秒）
+  var MASTER_VOL = 0.16;
 
   function midi(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+  // ii–V–I（C 大調）+ 轉回，每小節一個和弦
+  // bass：四分音符走路低音；comp：2/4 拍輕和弦；mel：固定旋律動機（null = 休止）
+  var PROG = [
+    { bass: [38, 41, 45, 47], comp: [53, 57, 60], mel: [69, null, 72, null] },   // Dm7
+    { bass: [43, 47, 50, 53], comp: [53, 55, 59], mel: [71, null, 74, 71] },      // G7
+    { bass: [36, 40, 43, 45], comp: [52, 55, 59], mel: [72, null, 76, null] },    // Cmaj7
+    { bass: [45, 49, 52, 55], comp: [55, 57, 61], mel: [73, null, 72, 69] }       // A7（轉回 Dm7）
+  ];
 
   function attach(audioContext) { ctx = audioContext; }
 
@@ -29,43 +33,55 @@
     master.gain.value = 0.0001;
     filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 2100;     // 砍掉高頻，溫暖一點
-    filter.Q.value = 0.3;
+    filter.frequency.value = 2600;
+    filter.Q.value = 0.4;
+    // 輕微回聲增加空間感
+    delay = ctx.createDelay();
+    delay.delayTime.value = BEAT * 0.75;
+    var fb = ctx.createGain(); fb.gain.value = 0.22;
+    var wet = ctx.createGain(); wet.gain.value = 0.25;
     filter.connect(master);
+    filter.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(master);
     master.connect(ctx.destination);
   }
 
-  function tone(freq, start, dur, type, peak, atk) {
-    var o = ctx.createOscillator();
-    var g = ctx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(freq, start);
+  // 撥奏式音色（顫音琴 vibraphone 感）：基音 + 弱八度，柔和起音、自然衰減
+  function pluck(freq, start, dur, peak, type) {
+    var o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    o2.type = 'sine'; o2.frequency.value = freq * 2; // 八度泛音
+    var g2 = ctx.createGain(); g2.gain.value = 0.25;
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(filter);
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.linearRampToValueAtTime(peak, start + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    o.start(start); o2.start(start);
+    o.stop(start + dur + 0.05); o2.stop(start + dur + 0.05);
+  }
+
+  function bassNote(freq, start, dur, peak) {
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.value = freq;
     o.connect(g); g.connect(filter);
     g.gain.setValueAtTime(0.0001, start);
-    g.gain.linearRampToValueAtTime(peak, start + atk);
+    g.gain.linearRampToValueAtTime(peak, start + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-    o.start(start);
-    o.stop(start + dur + 0.05);
+    o.start(start); o.stop(start + dur + 0.05);
   }
 
   function scheduleBar(t) {
-    var ch = CHORDS[bar % CHORDS.length];
-    // soft pad（和弦，略微 detune 增加厚度）
-    ch.notes.forEach(function (n, i) {
-      var f = midi(n) * (1 + (i % 2 ? 0.001 : -0.001));
-      tone(f, t, BAR * 1.05, 'triangle', 0.045, 0.6);
-    });
-    // 低音
-    tone(midi(ch.bass), t, BAR * 0.9, 'sine', 0.10, 0.05);
-    tone(midi(ch.bass + 7), t + BAR * 0.5, BAR * 0.4, 'sine', 0.05, 0.05);
-    // 稀疏旋律（和弦音高八度，隨機點綴，像夜裡的鋼片琴）
-    var beat = BAR / 4;
-    var hi = ch.notes.map(function (n) { return n + 12; });
+    var c = PROG[bar % PROG.length];
     for (var b = 0; b < 4; b++) {
-      if (Math.random() < 0.4) {
-        var n = hi[Math.floor(Math.random() * hi.length)];
-        tone(midi(n), t + b * beat + (Math.random() * 0.05), 0.55, 'sine', 0.05, 0.015);
+      var bt = t + b * BEAT;
+      // 走路低音：每拍一顆
+      bassNote(midi(c.bass[b]), bt, BEAT * 0.92, 0.13);
+      // comp：2、4 拍輕和弦點綴（帶 swing）
+      if (b === 1 || b === 3) {
+        c.comp.forEach(function (n) { pluck(midi(n), bt + SWING, BEAT * 0.7, 0.035); });
       }
+      // 旋律動機
+      var mn = c.mel[b];
+      if (mn != null) pluck(midi(mn), bt + (b % 2 ? SWING : 0), BEAT * 1.1, 0.06);
     }
     bar++;
   }
@@ -73,10 +89,7 @@
   function loop() {
     if (!playing) return;
     var now = ctx.currentTime;
-    while (nextBar < now + 0.35) {
-      scheduleBar(nextBar);
-      nextBar += BAR;
-    }
+    while (nextBar < now + 0.4) { scheduleBar(nextBar); nextBar += BAR; }
   }
 
   function start() {
@@ -85,10 +98,9 @@
     playing = true;
     master.gain.cancelScheduledValues(ctx.currentTime);
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(MASTER_VOL, ctx.currentTime + 1.8);
-    nextBar = ctx.currentTime + 0.15;
-    bar = 0;
-    timer = setInterval(loop, 90);
+    master.gain.linearRampToValueAtTime(MASTER_VOL, ctx.currentTime + 1.5);
+    nextBar = ctx.currentTime + 0.15; bar = 0;
+    timer = setInterval(loop, 80);
     loop();
   }
 
@@ -99,7 +111,7 @@
     if (master) {
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-      master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.7);
+      master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
     }
   }
 
