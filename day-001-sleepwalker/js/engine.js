@@ -227,7 +227,7 @@
       if (overlap(box, this.hazards[i])) { this._fail(hazardReason(this.hazards[i])); return; }
     }
     if (this.exit && overlap(box, this.exit)) { this.state = 'won'; return; }
-    if (w.y > this.H + 80) { this._fail('先生掉出去了！'); return; }
+    if (w.y > this.H + 80) { this._fail('摔下去，先生醒了！'); return; }
   };
 
   Game.prototype._moveHorizontal = function (w, solids) {
@@ -275,6 +275,7 @@
           var safeLanding = best.soft || w.launched;
           w.vy = 0; w.launchVx = 0; w.launched = false;
           w.onGround = true;
+          w._softLand = !!best.soft;       // 落在軟物上 → 輕柔回饋
           w.riding = best._mover ? best : null;
           if (w.airborne) {
             w.airborne = false;
@@ -301,10 +302,10 @@
   };
 
   function hazardReason(hz) {
-    if (hz.kind === 'spike') return '先生踩到尖刺了！';
-    if (hz.kind === 'water') return '先生掉進水裡了！';
-    if (hz.kind === 'fire') return '先生碰到火了！';
-    return '先生遇到危險了！';
+    if (hz.kind === 'spike') return '踩到尖刺，先生痛醒了！';
+    if (hz.kind === 'water') return '掉進水裡，先生嚇醒了！';
+    if (hz.kind === 'fire') return '碰到火，先生驚醒了！';
+    return '先生被嚇醒了！';
   }
 
   function simulate(level, placements, maxSteps) {

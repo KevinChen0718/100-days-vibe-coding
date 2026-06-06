@@ -364,13 +364,14 @@
   // ---- 夢遊先生（翹鬍子、垂睡帽、條紋睡衣、橘拖鞋；明顯搖晃）----
   function drawWalker(ctx, w, time, state) {
     var cx = w.x + WW / 2, top = w.y, feet = w.y + WH, face = w.facing, moving = (state === 'walking');
+    var awake = (state === 'lost');   // 被吵醒：睜眼、嚇一跳
 
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath(); ctx.ellipse(cx, feet + 2, 16, 4, 0, 0, 7); ctx.fill();
 
-    var dreamRot = Math.sin(time * 0.0033 + cx * 0.01) * 0.16 + (moving ? Math.sin(w.walkAnim * 0.5) * 0.05 : 0);
-    var dreamSway = Math.sin(time * 0.0026 + 1.2) * 6;
+    var dreamRot = awake ? 0 : (Math.sin(time * 0.0033 + cx * 0.01) * 0.16 + (moving ? Math.sin(w.walkAnim * 0.5) * 0.05 : 0));
+    var dreamSway = awake ? 0 : Math.sin(time * 0.0026 + 1.2) * 6;
     var sc = WW / 26;   // 縮小整體繪製以符合較小的碰撞框
     // 擠壓拉伸（手感）：下墜時拉長、落地瞬間壓扁，以腳為錨點
     var sqy = 1, sqx = 1;
@@ -410,16 +411,26 @@
     var hcx = 0, hcy = 3 + oy;
     ctx.save(); ctx.translate(hcx, hcy + 7); ctx.rotate(headTilt); ctx.translate(-hcx, -(hcy + 7));
     ctx.fillStyle = '#f3cf9f'; ctx.beginPath(); ctx.arc(hcx, hcy, 11.5, 0, 7); ctx.fill(); outline(ctx, 2.5);
-    // 閉眼
-    ctx.strokeStyle = '#5a4636'; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.arc(hcx + 3, hcy - 1, 2.6, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke();
-    ctx.beginPath(); ctx.arc(hcx + 9, hcy - 1, 2.6, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke();
+    if (awake) {
+      // 睜大的眼睛（被吵醒）
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(hcx + 3, hcy - 1, 3, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(hcx + 9, hcy - 1, 3, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3a2c20';
+      ctx.beginPath(); ctx.arc(hcx + 4, hcy - 1, 1.4, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(hcx + 10, hcy - 1, 1.4, 0, 7); ctx.fill();
+      // 張口（嚇一跳）
+      ctx.fillStyle = '#7a3a3a'; ctx.beginPath(); ctx.ellipse(hcx + 6, hcy + 6, 2.4, 3, 0, 0, 7); ctx.fill();
+    } else {
+      // 閉眼（安睡）
+      ctx.strokeStyle = '#5a4636'; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(hcx + 3, hcy - 1, 2.6, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(hcx + 9, hcy - 1, 2.6, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke();
+    }
     // 翹鬍子
     ctx.strokeStyle = '#7a5a3a'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(hcx + 2, hcy + 6); ctx.quadraticCurveTo(hcx + 8, hcy + 5, hcx + 12, hcy + 2);
-    ctx.moveTo(hcx + 2, hcy + 6); ctx.quadraticCurveTo(hcx + 8, hcy + 8, hcx + 12, hcy + 8); ctx.stroke();
-    // 紅鼻
-    ctx.fillStyle = '#e8a98b'; ctx.beginPath(); ctx.arc(hcx + 10, hcy + 3, 2, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hcx + 2, hcy + 9); ctx.quadraticCurveTo(hcx + 8, hcy + 8, hcx + 12, hcy + 5);
+    ctx.moveTo(hcx + 2, hcy + 9); ctx.quadraticCurveTo(hcx + 8, hcy + 11, hcx + 12, hcy + 11); ctx.stroke();
     // 垂睡帽
     ctx.fillStyle = '#7d9bd1';
     ctx.beginPath(); ctx.moveTo(hcx - 11, hcy - 5); ctx.quadraticCurveTo(hcx - 20, hcy - 30, hcx - 28, hcy - 30);
@@ -429,8 +440,15 @@
     ctx.restore();
     ctx.restore();
 
-    // Zzz
-    if (state !== 'won') {
+    if (awake) {
+      // 驚醒的驚嘆號
+      ctx.save();
+      ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      ctx.font = '800 26px system-ui'; ctx.textAlign = 'center';
+      ctx.strokeText('!', cx, top - 6); ctx.fillText('!', cx, top - 6);
+      ctx.textAlign = 'left'; ctx.restore();
+    } else if (state !== 'won') {
+      // Zzz（安睡）
       ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.85)';
       var zb = Math.sin(time * 0.004);
       ctx.globalAlpha = 0.5 + 0.3 * zb;

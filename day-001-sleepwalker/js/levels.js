@@ -88,27 +88,28 @@
       solution: [{ id: 'crate', x: 690, y: 180 }, { id: 'board', x: 160, y: 254 }]
     },
 
-    // 4 —— 鑽水管：走進水管從另一頭高處出來，遮陽棚接住
+    // 4 —— 溜煙囪：走到屋頂煙囪溜下去，從下層屋頂的煙囪冒出來，再落到中庭
     {
-      id: 4, name: '鑽水管', chapter: '第二章 · 後巷', theme: 'sky',
-      story: '這頭是死路，牆邊的排水管能通到另一邊；但出口在高處，落下來要有東西接。',
-      hint: '走進左邊的水管口，他會從另一根水管高高地出來——下面先鋪好遮陽棚。',
-      world: world(), startFacing: -1, bed: { x: 820, y: 240 },
+      id: 4, name: '溜下煙囪', chapter: '第二章 · 後巷', theme: 'sky',
+      story: '他走到別人家屋頂的煙囪，會「咻」地溜下去，從下面那棟的煙囪冒出來。冒出來後還有一階落差。',
+      hint: '讓他走進高處的煙囪溜下去；他會站到中層屋頂，再往左掉——下面鋪好遮陽棚接住。',
+      world: world(), startFacing: -1, bed: { x: 820, y: 200 },
       solids: [LW, RW,
-        { x: 480, y: 240, w: 380, h: 20 },
-        { x: 32, y: 500, w: 420, h: 20 }],
+        { x: 560, y: 200, w: 300, h: 20 },
+        { x: 300, y: 360, w: 260, h: 20 },
+        { x: 32, y: 500, w: 300, h: 20 }],
       hazards: [],
       props: [
-        { type: 'antenna', x: 800, y: 240 },
-        { type: 'smokestack', x: 560, y: 240 },
-        { type: 'clothesline', x: 60, y: 470, x2: 240, y2: 470 },
-        { type: 'cat', x: 380, y: 500, color: '#9a9aa6' }],
+        { type: 'antenna', x: 800, y: 200 },
+        { type: 'dish', x: 340, y: 360 },
+        { type: 'clothesline', x: 60, y: 470, x2: 220, y2: 470 },
+        { type: 'cat', x: 120, y: 500, color: '#9a9aa6' }],
       portals: [
-        { id: 'a', x: 500, y: 162, w: 40, h: 78, link: 'b', color: PC2 },
-        { id: 'b', x: 200, y: 222, w: 40, h: 78, link: 'a', exitFacing: -1, color: PC2 }],
-      movables: [{ id: 'awning', type: 'awning', x: 760, y: 476, w: 180, h: 24 }],
-      exit: { x: 366, y: 422, w: 50, h: 78 },
-      solution: [{ id: 'awning', x: 60, y: 476 }]
+        { id: 'a', x: 600, y: 122, w: 40, h: 78, link: 'b', color: PC2 },
+        { id: 'b', x: 460, y: 282, w: 40, h: 78, link: 'a', exitFacing: -1, color: PC2 }],
+      movables: [{ id: 'awning', type: 'awning', x: 700, y: 476, w: 180, h: 24 }],
+      exit: { x: 50, y: 422, w: 50, h: 78 },
+      solution: [{ id: 'awning', x: 160, y: 476 }]
     },
 
     // 5 —— 之字下樓：往左連掉兩層，兩張遮陽棚各接一次
@@ -163,9 +164,9 @@
 
     // 7 —— 水管 + 軟著陸 + 過巷
     {
-      id: 7, name: '排水管捷徑', chapter: '第三章 · 老城', theme: 'dawn',
-      story: '走進排水管到下一區，落地後還要過一道水溝才到家。',
-      hint: '鑽水管下去 → 遮陽棚接住高處墜落 → 木板補水溝到家。',
+      id: 7, name: '溜到對街', chapter: '第三章 · 老城', theme: 'dawn',
+      story: '從高處的煙囪溜到對街下層的屋頂，落地後還隔著一道水溝才到家。',
+      hint: '走進右邊高處的煙囪溜下去，他會站到左下的屋頂；再用木板補水溝走到家。',
       world: world(), startFacing: -1, bed: { x: 820, y: 220 },
       solids: [LW, RW,
         { x: 460, y: 220, w: 400, h: 20 },
@@ -178,13 +179,11 @@
         { type: 'flowerpot', x: 600, y: 500 },
         { type: 'clothesline', x: 60, y: 470, x2: 220, y2: 470 }],
       portals: [
-        { id: 'a', x: 480, y: 142, w: 40, h: 78, link: 'b', color: PC },
-        { id: 'b', x: 120, y: 222, w: 40, h: 78, link: 'a', exitFacing: 1, color: PC }],
-      movables: [
-        { id: 'awning', type: 'awning', x: 760, y: 476, w: 180, h: 24 },
-        { id: 'board', type: 'board', x: 800, y: 484, w: 160, h: 14 }],
+        { id: 'a', x: 600, y: 142, w: 40, h: 78, link: 'b', color: PC },
+        { id: 'b', x: 120, y: 422, w: 40, h: 78, link: 'a', exitFacing: 1, color: PC }],
+      movables: [{ id: 'board', type: 'board', x: 800, y: 484, w: 170, h: 14 }],
       exit: { x: 866, y: 422, w: 50, h: 78 },
-      solution: [{ id: 'awning', x: 60, y: 476 }, { id: 'board', x: 400, y: 496 }]
+      solution: [{ id: 'board', x: 400, y: 496 }]
     },
 
     // 8 —— 飛簷走壁：天線當橋 + 木板 + 遮陽棚
@@ -260,7 +259,7 @@
         { type: 'cat', x: 620, y: 480, color: '#e0a050' }],
       portals: [
         { id: 'a', x: 44, y: 242, w: 40, h: 78, link: 'b', color: PC },
-        { id: 'b', x: 600, y: 222, w: 40, h: 78, link: 'a', exitFacing: 1, color: PC }],
+        { id: 'b', x: 600, y: 242, w: 40, h: 78, link: 'a', exitFacing: 1, color: PC }],
       movables: [
         { id: 'a1', type: 'awning', x: 700, y: 296, w: 180, h: 24 },
         { id: 'board', type: 'board', x: 740, y: 304, w: 160, h: 14 },

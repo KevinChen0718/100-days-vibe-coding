@@ -20,9 +20,7 @@
   var showHint = false;
   var acc = 0, last = 0;
   var speedMult = 1;     // 快轉倍率（1×/2×/3×）
-  var particles = [];    // 塵土/煙霧粒子（手感）
-  var shake = 0;         // 螢幕震動強度
-  var showPreview = true; // 路徑預覽（規劃路線、防盲目試錯）
+  var particles = [];    // 柔和的夢境塵屑（落在遮陽棚等軟物時的小撲粉）
   var fade = 0;          // 換關淡入（0=無，1=全黑）
 
   function spawnPuff(x, y, n, opts) {
@@ -55,38 +53,6 @@
     ctx.globalAlpha = 1;
   }
 
-  // ---- 路徑預覽：用目前的道具擺放跑一次模擬，畫出夢遊先生會怎麼走的虛線 ----
-  var previewPath = [];
-  var previewOk = false;
-  function computePreview() {
-    previewPath = []; previewOk = false;
-    if (!game || game.state !== 'ready' || !showPreview) return;
-    var sim = new Engine.Game(game.level);
-    for (var i = 0; i < game.movables.length; i++) {
-      if (sim.movables[i]) { sim.movables[i].x = game.movables[i].x; sim.movables[i].y = game.movables[i].y; }
-    }
-    sim.start();
-    for (var s = 0; s < 3000; s++) {
-      sim.step();
-      if (s % 2 === 0) previewPath.push({ x: sim.walker.x + 10, y: sim.walker.y + 17 });
-      if (sim.state !== 'walking') break;
-    }
-    previewOk = sim.state === 'won';
-  }
-  function drawPreview() {
-    if (!showPreview || game.state !== 'ready' || previewPath.length < 2) return;
-    ctx.save();
-    ctx.setLineDash([7, 7]); ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-    ctx.strokeStyle = previewOk ? 'rgba(150,235,175,0.55)' : 'rgba(245,185,185,0.5)';
-    ctx.beginPath();
-    for (var i = 0; i < previewPath.length; i++) { var p = previewPath[i]; if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }
-    ctx.stroke(); ctx.setLineDash([]);
-    var e = previewPath[previewPath.length - 1];
-    ctx.fillStyle = previewOk ? 'rgba(150,235,175,0.95)' : 'rgba(245,150,150,0.95)';
-    ctx.beginPath(); ctx.arc(e.x, e.y, 5, 0, 7); ctx.fill();
-    if (!previewOk) { ctx.fillStyle = '#fff'; ctx.font = '700 14px system-ui'; ctx.textAlign = 'center'; ctx.fillText('✕', e.x, e.y + 5); ctx.textAlign = 'left'; }
-    ctx.restore();
-  }
   var prevState = 'ready';
   var prevLaunched = false;
   var prevSliding = false;
@@ -181,8 +147,7 @@
     updateTopbar();
     updateControls();
     musicSync();
-    particles = []; shake = 0; fade = 1;
-    computePreview();
+    particles = []; fade = 1;
   }
   function startWalk() {
     if (!game || game.state !== 'ready') return;
@@ -196,8 +161,7 @@
     prevState = 'ready';
     hideOverlay('win'); hideOverlay('lose');
     updateControls();
-    particles = []; shake = 0; fade = 0.7;
-    computePreview();
+    particles = []; fade = 0.5;
   }
   function nextLevel() {
     if (currentIndex + 1 < LEVELS.length) loadLevel(currentIndex + 1);
@@ -216,7 +180,8 @@
   function onLose(reason) {
     sndLose();
     $('loseText').textContent = reason || '先生醒了！';
-    showOverlay('lose');
+    // 先讓玩家看到他「驚醒」的反應，0.85 秒後才跳出面板
+    setTimeout(function () { if (game && game.state === 'lost') showOverlay('lose'); }, 850);
   }
 
   // ---- 畫面（overlay）----
@@ -278,26 +243,21 @@
         var w = game.walker, wasAir = w.airborne, fallFrom = w.peakFeet;
         game.step();
         guard++; acc -= STEP_MS;
-        // 落地塵土
-        if (wasAir && w.onGround && !w.slide) {
-          var feetY = w.y + 34;
-          spawnPuff(w.x + 10, feetY, 7, { col: '225,220,205', spread: 18 });
-          if (fallFrom && feetY - fallFrom > 70) { sndLand(); shake = Math.min(5, shake + 3); }
+        // 輕輕落在軟物（遮陽棚）上：一小撮夢境塵屑，柔和不驚擾
+        if (wasAir && w.onGround && !w.slide && w._softLand) {
+          spawnPuff(w.x + 10, w.y + 34, 5, { col: '235,230,218', spread: 14, speed: 1.1 });
         }
-        // 開始溜滑道
-        if (w.slide && !prevSliding) { spawnPuff(w.x + 10, w.y + 30, 8, { col: '200,210,230', up: true }); sndSlide(); }
+        // 開始溜滑道：柔和的吸入塵屑
+        if (w.slide && !prevSliding) { spawnPuff(w.x + 10, w.y + 30, 6, { col: '205,215,235', up: true, speed: 1.2 }); sndSlide(); }
         prevSliding = !!w.slide;
-        if (game.walker.launched && !prevLaunched) sndBounce();
-        prevLaunched = game.walker.launched;
         if (game.state !== 'walking') break;
       }
       if (prevState === 'walking' && game.state === 'won') onWin();
-      else if (prevState === 'walking' && game.state === 'lost') { onLose(game.failReason); shake = 9; spawnPuff(game.walker.x + 10, game.walker.y + 20, 14, { col: '230,120,120', speed: 3 }); }
+      else if (prevState === 'walking' && game.state === 'lost') onLose(game.failReason);
       prevState = game.state;
     }
 
     updateParticles();
-    if (shake > 0.1) shake *= 0.86; else shake = 0;
     if (fade > 0.001) fade = Math.max(0, fade - dt * 0.004);
     render();
     requestAnimationFrame(frame);
@@ -312,7 +272,6 @@
     }
     var lv = LEVELS[currentIndex];
     ctx.save();
-    if (shake > 0.2) ctx.translate((Math.random() - 0.5) * shake * 2.2, (Math.random() - 0.5) * shake * 2.2);
     Sprites.drawBackground(ctx, lv, W, H, time);
     Sprites.drawSolids(ctx, game.staticSolids, W, H, time);
     if (Sprites.drawProps) Sprites.drawProps(ctx, lv.props, time);
@@ -335,7 +294,6 @@
       ctx.restore();
     }
 
-    drawPreview();
     game.movables.forEach(function (m) {
       Sprites.drawMovable(ctx, m, { hover: hoverId === m.id, dragging: drag.id === m.id });
     });
@@ -372,7 +330,7 @@
     if (drag.id) {
       var dm = movableById(drag.id);
       if (!dm || dm.locked) { drag.id = null; }   // 拖到一半被先生碰到就放手
-      else { game.setMovable(drag.id, p.x - drag.offx, p.y - drag.offy); computePreview(); e.preventDefault(); }
+      else { game.setMovable(drag.id, p.x - drag.offx, p.y - drag.offy); e.preventDefault(); }
     } else if (game.state === 'ready' || game.state === 'walking') {
       var m = game.movableAt(p.x, p.y);
       var grabbable = m && !m.locked;
@@ -384,7 +342,7 @@
     }
   }
   function pointerUp() {
-    if (drag.id) { sndDrop(); drag.id = null; computePreview(); }
+    if (drag.id) { sndDrop(); drag.id = null; }
   }
 
   function bindInput() {
