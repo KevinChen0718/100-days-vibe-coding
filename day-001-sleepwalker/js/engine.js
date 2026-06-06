@@ -62,7 +62,8 @@
       peakFeet: 0,
       walkAnim: 0,
       portalCd: 0,
-      riding: null
+      riding: null,
+      slide: null      // 溜煙囪/滑水管過場狀態
     };
 
     this.staticSolids = (level.solids || []).map(function (s) {
@@ -152,6 +153,29 @@
     this._updateMovers();
     if (w.portalCd > 0) w.portalCd--;
 
+    // 溜煙囪/滑水管過場：鑽進入口下沉 → 從出口滑出 → 恢復（騰空，之後正常墜落計傷）
+    if (w.slide) {
+      var sl = w.slide; sl.t++;
+      if (sl.phase === 'in') {
+        var ecx = sl.entry.x + sl.entry.w / 2;
+        w.x += (ecx - WW / 2 - w.x) * 0.35;
+        w.y += 3.2;
+        if (sl.t >= 14) {
+          sl.phase = 'out'; sl.t = 0;
+          w.x = sl.exit.x + sl.exit.w / 2 - WW / 2;
+          w.y = sl.exit.y + sl.exit.h - WH;
+          if (sl.exit.exitFacing) w.facing = sl.exit.exitFacing;
+        }
+      } else {
+        w.x += w.facing * 2.4;
+        if (sl.t >= 12) {
+          w.slide = null; w.portalCd = CONFIG.PORTAL_CD;
+          w.vy = 0; w.airborne = true; w.onGround = false; w.peakFeet = w.y + WH; w.riding = null;
+        }
+      }
+      return;
+    }
+
     // 乘載：若正站在移動平台上，跟著它一起移動
     if (w.riding) {
       var mv = w.riding, box0 = this._box(w);
@@ -181,7 +205,7 @@
       if (!mo.locked && overlap(contact, mo)) mo.locked = true;
     }
 
-    // 傳送門
+    // 水管/煙囪滑道：走到入口 → 開始「溜下去」的物理過場（不是瞬間傳送）
     if (w.portalCd === 0 && this.portals.length) {
       var cx = w.x + WW / 2, cy = w.y + WH / 2;
       for (var p = 0; p < this.portals.length; p++) {
@@ -190,13 +214,8 @@
           var dest = null;
           for (var q = 0; q < this.portals.length; q++) if (this.portals[q].id === pt.link) dest = this.portals[q];
           if (dest) {
-            w.x = dest.x + dest.w / 2 - WW / 2;
-            w.y = dest.y + dest.h - WH;
-            // 從出口冒出來算騰空：之後若墜落會正常計算摔傷（出口在地面則立即落地、無傷）
-            w.vy = 0; w.riding = null; w.onGround = false; w.airborne = true;
-            w.peakFeet = w.y + WH;
-            if (dest.exitFacing) w.facing = dest.exitFacing;
-            w.portalCd = CONFIG.PORTAL_CD;
+            w.slide = { phase: 'in', t: 0, entry: pt, exit: dest };
+            w.vy = 0; w.riding = null; w.onGround = false; w.airborne = false;
             return;
           }
         }

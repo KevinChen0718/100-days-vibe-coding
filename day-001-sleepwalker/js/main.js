@@ -20,8 +20,76 @@
   var showHint = false;
   var acc = 0, last = 0;
   var speedMult = 1;     // 快轉倍率（1×/2×/3×）
+  var particles = [];    // 塵土/煙霧粒子（手感）
+  var shake = 0;         // 螢幕震動強度
+  var showPreview = true; // 路徑預覽（規劃路線、防盲目試錯）
+  var fade = 0;          // 換關淡入（0=無，1=全黑）
+
+  function spawnPuff(x, y, n, opts) {
+    opts = opts || {};
+    for (var i = 0; i < n; i++) {
+      var ang = opts.up ? (-Math.PI / 2 + (Math.random() - 0.5) * 2) : (Math.random() * Math.PI * 2);
+      var sp = (opts.speed || 1.6) * (0.4 + Math.random() * 0.9);
+      particles.push({
+        x: x + (Math.random() - 0.5) * (opts.spread || 14), y: y + (Math.random() - 0.5) * 6,
+        vx: Math.cos(ang) * sp, vy: (opts.up ? -Math.abs(Math.sin(ang) * sp) - 1 : Math.sin(ang) * sp - 0.6),
+        r: (opts.r || 3) * (0.6 + Math.random() * 0.8), life: 1,
+        decay: 0.012 + Math.random() * 0.02, col: opts.col || '230,225,210'
+      });
+    }
+  }
+  function updateParticles() {
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.vx *= 0.96; p.life -= p.decay;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+  function drawParticles() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life) * 0.6;
+      ctx.fillStyle = 'rgba(' + p.col + ',1)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.5 + p.life * 0.5), 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- 路徑預覽：用目前的道具擺放跑一次模擬，畫出夢遊先生會怎麼走的虛線 ----
+  var previewPath = [];
+  var previewOk = false;
+  function computePreview() {
+    previewPath = []; previewOk = false;
+    if (!game || game.state !== 'ready' || !showPreview) return;
+    var sim = new Engine.Game(game.level);
+    for (var i = 0; i < game.movables.length; i++) {
+      if (sim.movables[i]) { sim.movables[i].x = game.movables[i].x; sim.movables[i].y = game.movables[i].y; }
+    }
+    sim.start();
+    for (var s = 0; s < 3000; s++) {
+      sim.step();
+      if (s % 2 === 0) previewPath.push({ x: sim.walker.x + 10, y: sim.walker.y + 17 });
+      if (sim.state !== 'walking') break;
+    }
+    previewOk = sim.state === 'won';
+  }
+  function drawPreview() {
+    if (!showPreview || game.state !== 'ready' || previewPath.length < 2) return;
+    ctx.save();
+    ctx.setLineDash([7, 7]); ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.strokeStyle = previewOk ? 'rgba(150,235,175,0.55)' : 'rgba(245,185,185,0.5)';
+    ctx.beginPath();
+    for (var i = 0; i < previewPath.length; i++) { var p = previewPath[i]; if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }
+    ctx.stroke(); ctx.setLineDash([]);
+    var e = previewPath[previewPath.length - 1];
+    ctx.fillStyle = previewOk ? 'rgba(150,235,175,0.95)' : 'rgba(245,150,150,0.95)';
+    ctx.beginPath(); ctx.arc(e.x, e.y, 5, 0, 7); ctx.fill();
+    if (!previewOk) { ctx.fillStyle = '#fff'; ctx.font = '700 14px system-ui'; ctx.textAlign = 'center'; ctx.fillText('✕', e.x, e.y + 5); ctx.textAlign = 'left'; }
+    ctx.restore();
+  }
   var prevState = 'ready';
   var prevLaunched = false;
+  var prevSliding = false;
 
   // 拖曳狀態
   var drag = { id: null, offx: 0, offy: 0 };
@@ -65,6 +133,14 @@
   function sndWin() { [523, 659, 784, 1047].forEach(function (f, i) { beep(f, 0.25, 'triangle', 0.18, i * 0.1); }); }
   function sndLose() { beep(330, 0.25, 'sawtooth', 0.15, 0); beep(180, 0.4, 'sawtooth', 0.15, 0.12); }
   function sndBounce() { beep(420, 0.12, 'square', 0.12); beep(760, 0.12, 'square', 0.1, 0.05); }
+  function sndSlide() {
+    if (!soundOn || !audioCtx) return;
+    var t0 = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(700, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.5);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.1, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t0); o.stop(t0 + 0.6);
+  }
+  function sndLand() { beep(150, 0.08, 'sine', 0.08); }
   function sndDrop() { beep(180, 0.07, 'sine', 0.1); }
   function sndClick() { beep(620, 0.05, 'triangle', 0.08); }
 
@@ -105,6 +181,8 @@
     updateTopbar();
     updateControls();
     musicSync();
+    particles = []; shake = 0; fade = 1;
+    computePreview();
   }
   function startWalk() {
     if (!game || game.state !== 'ready') return;
@@ -118,6 +196,8 @@
     prevState = 'ready';
     hideOverlay('win'); hideOverlay('lose');
     updateControls();
+    particles = []; shake = 0; fade = 0.7;
+    computePreview();
   }
   function nextLevel() {
     if (currentIndex + 1 < LEVELS.length) loadLevel(currentIndex + 1);
@@ -195,19 +275,30 @@
       acc += dt * speedMult;
       var guard = 0;
       while (acc >= STEP_MS && guard < 24) {
+        var w = game.walker, wasAir = w.airborne, fallFrom = w.peakFeet;
         game.step();
-        acc -= STEP_MS;
-        guard++;
+        guard++; acc -= STEP_MS;
+        // 落地塵土
+        if (wasAir && w.onGround && !w.slide) {
+          var feetY = w.y + 34;
+          spawnPuff(w.x + 10, feetY, 7, { col: '225,220,205', spread: 18 });
+          if (fallFrom && feetY - fallFrom > 70) { sndLand(); shake = Math.min(5, shake + 3); }
+        }
+        // 開始溜滑道
+        if (w.slide && !prevSliding) { spawnPuff(w.x + 10, w.y + 30, 8, { col: '200,210,230', up: true }); sndSlide(); }
+        prevSliding = !!w.slide;
         if (game.walker.launched && !prevLaunched) sndBounce();
         prevLaunched = game.walker.launched;
         if (game.state !== 'walking') break;
       }
-      // 狀態轉變
       if (prevState === 'walking' && game.state === 'won') onWin();
-      else if (prevState === 'walking' && game.state === 'lost') onLose(game.failReason);
+      else if (prevState === 'walking' && game.state === 'lost') { onLose(game.failReason); shake = 9; spawnPuff(game.walker.x + 10, game.walker.y + 20, 14, { col: '230,120,120', speed: 3 }); }
       prevState = game.state;
     }
 
+    updateParticles();
+    if (shake > 0.1) shake *= 0.86; else shake = 0;
+    if (fade > 0.001) fade = Math.max(0, fade - dt * 0.004);
     render();
     requestAnimationFrame(frame);
   }
@@ -220,6 +311,8 @@
       return;
     }
     var lv = LEVELS[currentIndex];
+    ctx.save();
+    if (shake > 0.2) ctx.translate((Math.random() - 0.5) * shake * 2.2, (Math.random() - 0.5) * shake * 2.2);
     Sprites.drawBackground(ctx, lv, W, H, time);
     Sprites.drawSolids(ctx, game.staticSolids, W, H, time);
     if (Sprites.drawProps) Sprites.drawProps(ctx, lv.props, time);
@@ -242,10 +335,15 @@
       ctx.restore();
     }
 
+    drawPreview();
     game.movables.forEach(function (m) {
       Sprites.drawMovable(ctx, m, { hover: hoverId === m.id, dragging: drag.id === m.id });
     });
     Sprites.drawWalker(ctx, game.walker, time, game.state);
+    drawParticles();
+    ctx.restore();
+
+    if (fade > 0.01) { ctx.fillStyle = 'rgba(8,8,20,' + fade + ')'; ctx.fillRect(0, 0, W, H); }
   }
 
   // ---- 輸入 ----
@@ -274,7 +372,7 @@
     if (drag.id) {
       var dm = movableById(drag.id);
       if (!dm || dm.locked) { drag.id = null; }   // 拖到一半被先生碰到就放手
-      else { game.setMovable(drag.id, p.x - drag.offx, p.y - drag.offy); e.preventDefault(); }
+      else { game.setMovable(drag.id, p.x - drag.offx, p.y - drag.offy); computePreview(); e.preventDefault(); }
     } else if (game.state === 'ready' || game.state === 'walking') {
       var m = game.movableAt(p.x, p.y);
       var grabbable = m && !m.locked;
@@ -286,7 +384,7 @@
     }
   }
   function pointerUp() {
-    if (drag.id) { sndDrop(); drag.id = null; }
+    if (drag.id) { sndDrop(); drag.id = null; computePreview(); }
   }
 
   function bindInput() {

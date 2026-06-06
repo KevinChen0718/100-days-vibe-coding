@@ -326,27 +326,33 @@
     return 'rgba(' + parseInt(h.substring(0, 2), 16) + ',' + parseInt(h.substring(2, 4), 16) + ',' + parseInt(h.substring(4, 6), 16) + ',' + a + ')';
   }
 
-  // ---- 水管口（傳送門）：走進去從另一個水管口出來 ----
+  // ---- 滑道：磚造煙囪 + 暗色管口 + 向下箭頭（走到上面會「溜下去」，從另一個出來）----
   function drawPortal(ctx, p, time) {
-    var cx = p.x + p.w / 2, cy = p.y + p.h / 2, col = p.color || '#9b8cff', rx = p.w / 2, ry = p.h / 2;
-    // 光暈
-    var g = ctx.createRadialGradient(cx, cy, 2, cx, cy, p.w * 1.7);
-    g.addColorStop(0, hexA(col, 0.4 + 0.18 * Math.sin(time * 0.005))); g.addColorStop(1, hexA(col, 0));
-    ctx.fillStyle = g; ctx.fillRect(cx - p.w * 1.7, cy - p.w * 1.7, p.w * 3.4, p.w * 3.4);
-    // 水管外環（金屬）
-    ctx.fillStyle = '#7c8596'; roundRect(ctx, p.x - 6, p.y - 6, p.w + 12, p.h + 12, 12); ctx.fill(); outline(ctx, 2.5);
-    ctx.fillStyle = '#9aa6b6'; roundRect(ctx, p.x - 2, p.y - 2, p.w + 4, p.h + 4, 10); ctx.fill();
-    // 管內（發光漩渦）
+    var cx = p.x + p.w / 2, col = p.color || '#9b8cff';
+    // 冒煙
+    drawSmoke(ctx, cx, p.y - 6, time, p.x * 0.1);
+    // 磚造煙囪本體
+    ctx.fillStyle = '#7a5040'; roundRect(ctx, p.x - 6, p.y, p.w + 12, p.h + 8, 4); ctx.fill(); outline(ctx, 2.5);
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1;
+    for (var by = p.y + 14; by < p.y + p.h; by += 13) { ctx.beginPath(); ctx.moveTo(p.x - 6, by); ctx.lineTo(p.x + p.w + 6, by); ctx.stroke(); }
+    // 頂蓋
+    ctx.fillStyle = '#5e3c30'; roundRect(ctx, p.x - 10, p.y - 6, p.w + 20, 12, 3); ctx.fill(); outline(ctx, 2.5);
+    // 暗色管口（往下的洞）+ 內側光暈（標示這是活的滑道、配對同色）
+    var pulse = 0.45 + 0.3 * Math.sin(time * 0.006);
     ctx.save();
-    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.clip();
-    var sg = ctx.createRadialGradient(cx, cy, 2, cx, cy, ry * 1.4);
-    sg.addColorStop(0, hexA(col, 0.9)); sg.addColorStop(0.6, 'rgba(10,8,24,0.95)'); sg.addColorStop(1, hexA(col, 0.5));
-    ctx.fillStyle = sg; ctx.fillRect(p.x - 2, p.y - 2, p.w + 4, p.h + 4);
-    ctx.strokeStyle = hexA(col, 0.6); ctx.lineWidth = 2;
-    for (var i = 1; i <= 3; i++) { var rr = ry * (i / 3.4); ctx.beginPath(); ctx.ellipse(cx, cy, rr * 0.8, rr, time * 0.02 * (i % 2 ? 1 : -1), 0, 5); ctx.stroke(); }
+    ctx.beginPath(); ctx.ellipse(cx, p.y + 2, (p.w + 8) / 2, 8, 0, 0, 7); ctx.clip();
+    var sg = ctx.createLinearGradient(cx, p.y - 6, cx, p.y + 16);
+    sg.addColorStop(0, hexA(col, pulse)); sg.addColorStop(1, '#070512');
+    ctx.fillStyle = sg; ctx.fillRect(p.x - 10, p.y - 6, p.w + 20, 24);
     ctx.restore();
-    ctx.strokeStyle = '#4a5364'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.stroke();
-    for (var k = 0; k < 3; k++) { var ang = time * 0.04 + k * 2.094; ctx.fillStyle = hexA(col, 0.9); ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * (rx + 2), cy + Math.sin(ang) * (ry + 2), 2, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = hexA(col, 0.9); ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, p.y + 2, (p.w + 8) / 2, 8, 0, 0, 7); ctx.stroke();
+    // 向下箭頭（往下流動，提示可溜下去）
+    ctx.strokeStyle = hexA(col, 0.85); ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    for (var a = 0; a < 2; a++) {
+      var ay = p.y + 16 + ((time * 0.05 + a * 18) % 36);
+      if (ay > p.y + p.h - 6) continue;
+      ctx.beginPath(); ctx.moveTo(cx - 6, ay); ctx.lineTo(cx, ay + 6); ctx.lineTo(cx + 6, ay); ctx.stroke();
+    }
   }
 
   function drawMover(ctx, m) {
@@ -366,9 +372,13 @@
     var dreamRot = Math.sin(time * 0.0033 + cx * 0.01) * 0.16 + (moving ? Math.sin(w.walkAnim * 0.5) * 0.05 : 0);
     var dreamSway = Math.sin(time * 0.0026 + 1.2) * 6;
     var sc = WW / 26;   // 縮小整體繪製以符合較小的碰撞框
+    // 擠壓拉伸（手感）：下墜時拉長、落地瞬間壓扁，以腳為錨點
+    var sqy = 1, sqx = 1;
+    if (w.airborne) { var av = Math.min(Math.abs(w.vy), 12); sqy = 1 + av * 0.016; sqx = 1 - av * 0.011; }
     ctx.translate(cx + dreamSway, top);
     ctx.translate(0, WH); ctx.rotate(dreamRot); ctx.translate(0, -WH);
-    ctx.scale(face * sc, sc);
+    ctx.translate(0, WH * (1 - sqy));
+    ctx.scale(face * sc * sqx, sc * sqy);
 
     var swing = moving ? Math.sin(w.walkAnim) : 0;
     var bob = (moving ? Math.abs(Math.sin(w.walkAnim)) * 1.4 : 0) + Math.sin(time * 0.003) * 2.2;
