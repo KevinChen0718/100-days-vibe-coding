@@ -8,7 +8,7 @@
 
 | Day | 專案 | 說明 | 連結 |
 |:--:|:--|:--|:--|
-| 001 | 夢遊先生 Mr. Sleepwalker | 致敬 1999 年 Sarbakan《Good Night Mr. Snoozleberg》的物理解謎遊戲：手繪卡通夜色屋頂，移動屋頂上的物件（碰到就固定）幫夢遊的睡衣先生鋪出之字安全路線回家。10 關、煙囪轉身/傳送門/陷阱道具、純 Canvas、lounge jazz、零依賴。 | [day-001-sleepwalker](day-001-sleepwalker/) |
+| 001 | 夢遊先生 Mr. Sleepwalker | 致敬 1999 年 Sarbakan《Good Night Mr. Snoozleberg》的物理解謎遊戲：手繪卡通夜色屋頂，從右上角窗戶出發，移動屋頂上隨處可見的東西（木板/天線/遮陽棚/木箱/水管，碰到就固定）幫夢遊的睡衣先生繞出之字安全路線回家。10 關、煙囪轉身/陷阱道具、純 Canvas、lounge jazz、零依賴。 | [day-001-sleepwalker](day-001-sleepwalker/) |
 
 ## 玩法慣例
 

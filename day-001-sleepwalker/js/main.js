@@ -19,6 +19,7 @@
   var appState = 'title';        // title | playing
   var showHint = false;
   var acc = 0, last = 0;
+  var speedMult = 1;     // 快轉倍率（1×/2×/3×）
   var prevState = 'ready';
   var prevLaunched = false;
 
@@ -191,9 +192,9 @@
     if (dt > 250) dt = 250;       // 切回分頁時別爆衝
 
     if (appState === 'playing' && game && game.state === 'walking') {
-      acc += dt;
+      acc += dt * speedMult;
       var guard = 0;
-      while (acc >= STEP_MS && guard < 8) {
+      while (acc >= STEP_MS && guard < 24) {
         game.step();
         acc -= STEP_MS;
         guard++;
@@ -220,7 +221,8 @@
     }
     var lv = LEVELS[currentIndex];
     Sprites.drawBackground(ctx, lv, W, H, time);
-    Sprites.drawSolids(ctx, game.staticSolids, W, H);
+    Sprites.drawSolids(ctx, game.staticSolids, W, H, time);
+    if (Sprites.drawProps) Sprites.drawProps(ctx, lv.props, time);
     game.movers.forEach(function (mv) { Sprites.drawMover(ctx, mv); });
     Sprites.drawBed(ctx, lv.bed);
     game.hazards.forEach(function (hz) { Sprites.drawHazard(ctx, hz, time); });
@@ -296,6 +298,10 @@
     $('btnStart').addEventListener('click', function () { sndClick(); startWalk(); });
     $('btnReset').addEventListener('click', function () { sndClick(); resetLevel(); });
     $('btnHint').addEventListener('click', function () { sndClick(); showHint = !showHint; });
+    $('btnSpeed').addEventListener('click', function () {
+      speedMult = speedMult >= 3 ? 1 : speedMult + 1;
+      sndClick(); $('btnSpeed').textContent = speedMult + '×';
+    });
     $('btnMenu').addEventListener('click', function () { sndClick(); buildLevelSelect(); showOverlay('levelSelect'); });
     $('btnSound').addEventListener('click', function () {
       soundOn = !soundOn; localStorage.setItem(SOUND_KEY, soundOn ? 'on' : 'off');
@@ -336,6 +342,7 @@
     start: function () { startWalk(); },
     state: function () { return game ? game.state : null; },
     index: function () { return currentIndex; },
+    fast: function () { speedMult = 3; },
     count: LEVELS.length
   };
 

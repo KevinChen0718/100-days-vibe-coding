@@ -14,19 +14,22 @@
   'use strict';
 
   var CONFIG = {
-    WALKER_W: 26,
-    WALKER_H: 46,
+    WALKER_W: 20,         // 夢遊先生較小，讓屋頂場景顯得寬闊豐富
+    WALKER_H: 34,
     GRAVITY: 0.55,
     TERMINAL: 12,
-    WALK_SPEED: 0.95,     // 夢遊：慢吞吞地走
-    STEP_HEIGHT: 16,
-    MAX_SAFE_FALL: 118,
+    WALK_SPEED: 0.9,      // 夢遊：慢吞吞地走
+    STEP_HEIGHT: 13,
+    MAX_SAFE_FALL: 100,   // 較矮的人摔得更容易，落差更需要處理
     SPRING_POWER: 14.5,
     LAUNCH_VX: 4.6,
-    ANIM_SPEED: 0.14,     // 走路動畫相位（慢一點才像夢遊）
-    PORTAL_CD: 26,        // 傳送後的冷卻步數，避免立刻又被傳回去
+    ANIM_SPEED: 0.13,
+    PORTAL_CD: 26,
     STEP_DT: 1 / 60
   };
+
+  // 軟著陸的道具型別（遮陽棚 / 煙霧雲）：落到上面不受傷
+  function isSoft(t) { return t === 'awning' || t === 'mattress' || t === 'smoke'; }
 
   var WW = CONFIG.WALKER_W;
   var WH = CONFIG.WALKER_H;
@@ -70,7 +73,7 @@
         id: m.id != null ? m.id : 'm' + i,
         type: m.type,
         x: m.x, y: m.y, w: m.w, h: m.h,
-        soft: m.type === 'mattress',
+        soft: isSoft(m.type),
         spring: m.type === 'spring',
         locked: false      // 被先生碰到後就固定，不能再拖
       };
@@ -218,6 +221,7 @@
     for (var i = 0; i < solids.length; i++) {
       var s = solids[i];
       if (!overlap(box, s)) continue;
+      if (s.soft) { if (s.y < feet && s.y < stepTop) stepTop = s.y; continue; }  // 軟物會被踩扁→可踩上、不擋路
       if (s.y < feet - CONFIG.STEP_HEIGHT) { wall = true; break; }
       else if (s.y < feet) { if (s.y < stepTop) stepTop = s.y; }
     }
