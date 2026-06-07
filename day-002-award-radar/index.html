@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>里程票雷達 · Alaska × STARLUX</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="radar"></div>
+    <div>
+      <h1>里程票雷達 <span>· Alaska × STARLUX</span></h1>
+      <div class="sub">用阿拉斯加里程，盯星宇航空的限時優惠票</div>
+    </div>
+  </header>
+
+  <div class="status" id="status">掃描資料載入中…</div>
+  <div id="cards"></div>
+
+  <button class="add" onclick="openModal()">＋ 新增追蹤航線</button>
+  <footer>Day 2 of 100 · Vibe Coding Marathon<br>圖表＝此刻掃描快照（哪天飛便宜）· 達標會推 Discord / Telegram</footer>
+</div>
+
+<!-- ===== 新增航線 modal ===== -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <h2>新增追蹤航線 <span class="x" onclick="closeModal()">✕</span></h2>
+    <div class="sect">
+      <label>飛哪裡（只收星宇飛得到的機場）</label>
+      <div class="ports">
+        <div class="pwrap">
+          <input class="inp" id="from" placeholder="出發地，例：TPE 或 桃園" autocomplete="off" oninput="ac(this,'acFrom')" onfocus="ac(this,'acFrom')">
+          <div class="ac" id="acFrom"></div>
+        </div>
+        <button class="swap" onclick="swap()" title="對調">⇄</button>
+        <div class="pwrap">
+          <input class="inp" id="to" placeholder="目的地，例：NRT 或 成田" autocomplete="off" oninput="ac(this,'acTo')" onfocus="ac(this,'acTo')">
+          <div class="ac" id="acTo"></div>
+        </div>
+      </div>
+    </div>
+    <div class="sect">
+      <label>什麼時候飛（給區間，命中率更高）</label>
+      <div class="dates">
+        <input class="inp" id="d1" type="date" value="2026-12-01" onchange="upd()">
+        <span style="color:var(--ink-dim)">到</span>
+        <input class="inp" id="d2" type="date" value="2026-12-10" onchange="upd()">
+      </div>
+      <div class="seg">
+        <button onclick="flex(this,'精確日期')">精確日期</button>
+        <button class="active" onclick="flex(this,'這段區間')">日期區間</button>
+        <button onclick="flex(this,'整個月')">整個月都行</button>
+      </div>
+      <div class="hint">里程優惠票哪天放出來看運氣 — 雷達會掃描區間內每一天，哪天便宜就通知哪天。</div>
+    </div>
+    <div class="sect">
+      <label>想追的艙等 & 通知門檻（已帶星宇甜蜜點，可改）</label>
+      <div class="cabrow">
+        <input type="checkbox" id="cE" checked onchange="upd()">
+        <span class="nm">經濟艙</span><span class="mid">低於</span>
+        <input class="num" id="tE" value="7500" oninput="upd()"><span class="mid">點通知我</span>
+      </div>
+      <div class="cabrow">
+        <input type="checkbox" id="cB" checked onchange="upd()">
+        <span class="nm">商務艙</span><span class="mid">低於</span>
+        <input class="num" id="tB" value="15000" oninput="upd()"><span class="mid">點通知我</span>
+      </div>
+    </div>
+    <div class="confirm" id="confirm">📡 設定預覽會出現在這裡</div>
+    <div class="acts">
+      <button class="ghost" onclick="closeModal()">取消</button>
+      <button class="go" onclick="startTrack()">開始追蹤 →</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

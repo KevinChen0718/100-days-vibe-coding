@@ -1,0 +1,14 @@
+{
+  "name": "award-radar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "里程票雷達 — 用 Alaska 里程盯星宇（STARLUX）優惠票，跌破門檻自動通知（Discord / Telegram）",
+  "scripts": {
+    "scan": "node radar.js",
+    "serve": "node serve.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>里程票雷達 · Alaska × STARLUX</title>
+<style>
+  :root{
+    --bg:#10241d; --bg2:#16322a; --card:#1c3d33; --card-hi:#234a3e;
+    --ink:#f3efe4; --ink-dim:#9db3a8; --line:#2c5246;
+    --clay:#d87c56; --clay-soft:#e89a78; --green:#3fae7a; --gold:#e4b65c; --red:#e0594e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%, #1d4438 0%, var(--bg) 55%);
+    color:var(--ink); min-height:100vh; padding:32px 20px 60px; letter-spacing:.2px;
+  }
+  .wrap{max-width:920px;margin:0 auto}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:6px}
+  .radar{width:46px;height:46px;border-radius:50%;position:relative;flex:none;
+    background:conic-gradient(from 0deg, transparent 0deg, rgba(63,174,122,0) 250deg, rgba(63,174,122,.55) 360deg);
+    border:1.5px solid var(--line); animation:spin 3.2s linear infinite}
+  .radar::after{content:"";position:absolute;inset:34%;border-radius:50%;background:var(--clay);box-shadow:0 0 12px var(--clay)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h1{font-size:22px;font-weight:800}
+  h1 span{color:var(--clay-soft)}
+  .sub{color:var(--ink-dim);font-size:13px;margin-top:2px}
+
+  .status{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;
+    margin:18px 0 22px;padding:12px 16px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:12px;font-size:13px;color:var(--ink-dim)}
+  .status b{color:var(--ink);font-weight:700}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:20px 22px;margin-bottom:16px;position:relative;overflow:hidden}
+  .card.hit{border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 8px 30px -12px rgba(216,124,86,.5)}
+  .card.hit::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--clay)}
+  .route{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .route .air{font-size:20px;font-weight:800}
+  .route .arrow{color:var(--clay-soft);font-size:18px}
+  .route .cn{color:var(--ink-dim);font-size:13px}
+  .meta{color:var(--ink-dim);font-size:12.5px;margin-top:4px}
+
+  .cabins{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  @media(max-width:560px){.cabins{grid-template-columns:1fr}}
+  .cab{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;position:relative}
+  .cab .lbl{font-size:12.5px;color:var(--ink-dim);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .cab .thresh{cursor:pointer;border-bottom:1px dashed var(--ink-dim)}
+  .cab .thresh:hover{color:var(--clay-soft);border-color:var(--clay-soft)}
+  .pen{font-size:10px;opacity:.7;margin-left:3px}
+  .cab .pts{font-size:25px;font-weight:800;line-height:1}
+  .cab .pts small{font-size:12.5px;font-weight:600;color:var(--ink-dim)}
+  .cab.hit .pts{color:var(--clay-soft)}
+
+  /* 區間每日點數長條圖：柱高=點數（越貴越高），跌破門檻線=橘色達標 */
+  .bars{position:relative;display:flex;gap:4px;align-items:flex-end;height:72px;margin-top:16px}
+  .bar{flex:1;display:flex;align-items:flex-end;justify-content:center;height:100%}
+  .bar i{width:100%;max-width:16px;border-radius:3px 3px 0 0;background:#3a564b;transition:.25s}
+  .bar.hit i{background:var(--clay)}
+  .thline{position:absolute;left:0;right:0;border-top:1px dashed var(--clay-soft);pointer-events:none;z-index:2}
+  .thline span{position:absolute;right:0;top:-13px;font-size:8.5px;font-weight:700;color:var(--clay-soft);background:var(--bg2);padding:0 4px}
+  .axis-days{display:flex;gap:4px;margin-top:5px}
+  .axis-days span{flex:1;text-align:center;font-size:9.5px;color:var(--ink-dim)}
+  .axis-days span.hit{color:var(--clay-soft);font-weight:800}
+
+  .tag{display:inline-block;margin-top:14px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+  .ok{background:rgba(63,174,122,.16);color:#7fe0ad;border:1px solid rgba(63,174,122,.5)}
+  .tag2{color:var(--ink-dim);font-size:12px;margin-top:14px;display:inline-block}
+  .hot{background:rgba(216,124,86,.18);color:var(--clay-soft);border:1px solid var(--clay);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(216,124,86,.4)}50%{box-shadow:0 0 0 6px rgba(216,124,86,0)}}
+  .buy{float:right;margin-top:6px;background:var(--clay);color:#1a120c;border:none;font-weight:800;font-size:12.5px;padding:7px 14px;border-radius:8px;cursor:pointer}
+
+  .add{width:100%;padding:16px;border:1.5px dashed var(--line);background:transparent;color:var(--ink-dim);
+    border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
+  .add:hover{border-color:var(--clay);color:var(--clay-soft)}
+  footer{text-align:center;color:var(--ink-dim);font-size:12px;margin-top:30px;line-height:1.7}
+
+  /* ===== modal ===== */
+  .mask{position:fixed;inset:0;background:rgba(6,16,12,.72);backdrop-filter:blur(3px);
+    display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50}
+  .mask.open{display:flex}
+  .modal{background:var(--bg2);border:1px solid var(--line);border-radius:18px;width:100%;max-width:540px;
+    padding:24px;box-shadow:0 30px 80px -20px rgba(0,0,0,.7);animation:rise .35s ease}
+  @keyframes rise{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .modal h2{font-size:18px;display:flex;justify-content:space-between;align-items:center}
+  .modal h2 .x{cursor:pointer;color:var(--ink-dim);font-weight:400;font-size:22px;line-height:1}
+  .sect{margin-top:20px}
+  .sect>label{display:block;font-size:12.5px;color:var(--ink-dim);font-weight:700;margin-bottom:8px}
+  .ports{display:flex;gap:8px;align-items:center}
+  .pwrap{position:relative;flex:1}
+  .inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--ink);
+    padding:11px 12px;font-size:14px;font-family:inherit}
+  .inp:focus{outline:none;border-color:var(--clay)}
+  .swap{flex:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+    color:var(--clay-soft);font-size:16px;cursor:pointer}
+  .ac{position:absolute;left:0;right:0;top:46px;background:var(--card-hi);border:1px solid var(--line);
+    border-radius:10px;z-index:5;max-height:190px;overflow:auto;display:none;box-shadow:0 12px 30px -10px rgba(0,0,0,.6)}
+  .ac.show{display:block}
+  .ac div{padding:9px 12px;font-size:13px;cursor:pointer;display:flex;justify-content:space-between}
+  .ac div:hover{background:var(--clay);color:#1a120c}
+  .ac .code{font-weight:800}
+  .hint{font-size:11.5px;color:var(--ink-dim);margin-top:7px}
+  .dates{display:flex;gap:8px;align-items:center}
+  .dates .inp{flex:1}
+  .seg{display:flex;gap:6px;margin-top:10px}
+  .seg button{flex:1;background:var(--card);border:1px solid var(--line);color:var(--ink-dim);
+    padding:8px;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .seg button.active{background:rgba(216,124,86,.16);border-color:var(--clay);color:var(--clay-soft)}
+  .cabrow{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:11px 13px;margin-bottom:8px}
+  .cabrow input[type=checkbox]{width:17px;height:17px;accent-color:var(--clay)}
+  .cabrow .nm{font-weight:700;font-size:13.5px;min-width:54px}
+  .cabrow .mid{color:var(--ink-dim);font-size:12.5px}
+  .cabrow .num{width:88px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--ink);
+    padding:7px 9px;font-size:13px;text-align:right;font-family:inherit}
+  .confirm{margin-top:18px;background:rgba(216,124,86,.1);border:1px dashed var(--clay);border-radius:12px;
+    padding:13px 15px;font-size:13px;line-height:1.6;color:var(--clay-soft)}
+  .acts{display:flex;gap:10px;margin-top:20px}
+  .acts button{flex:1;padding:13px;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;border:none}
+  .ghost{background:transparent;border:1px solid var(--line);color:var(--ink-dim)}
+  .go{background:var(--clay);color:#1a120c}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="radar"></div>
+    <div>
+      <h1>里程票雷達 <span>· Alaska × STARLUX</span></h1>
+      <div class="sub">用阿拉斯加里程，盯星宇航空的限時優惠票</div>
+    </div>
+  </header>
+
+  <div class="status">
+    <span>監控中 <b>2</b> 條航線</span>
+    <span>上次掃描 <b>3 分鐘前</b></span>
+    <span><i class="dot on"></i>Discord 叮叮當</span>
+    <span><i class="dot on"></i>Telegram</span>
+    <span style="margin-left:auto;color:var(--clay-soft);font-weight:700">● 1 筆達標</span>
+  </div>
+
+  <!-- 命中卡：當下快照，柱高=點數，門檻線下=橘色達標 -->
+  <div class="card hit">
+    <div class="route">
+      <span class="air">TPE</span><span class="arrow">→</span><span class="air">NRT</span>
+      <span class="cn">桃園 → 成田　·　2026-12-01 ～ 12-10　·　單程</span>
+    </div>
+    <div class="meta">星宇 JX802 · 此刻掃描區間 10 天 · 3 分鐘前</div>
+    <div class="cabins">
+      <div class="cab hit">
+        <div class="lbl"><span>經濟艙</span><span class="thresh" title="點我改門檻">門檻 ≤ 7,500<span class="pen">✎</span></span></div>
+        <div class="pts">7,500 <small>點 · 最低在 12/03、12/07</small></div>
+        <div class="bars" id="b1"></div>
+        <div class="axis-days" id="b1d"></div>
+        <span class="tag hot">🎯 12/03、12/07 達標！快去訂</span><button class="buy">前往 Alaska</button>
+      </div>
+      <div class="cab">
+        <div class="lbl"><span>商務艙</span><span class="thresh" title="點我改門檻">門檻 ≤ 15,000<span class="pen">✎</span></span></div>
+        <div class="pts">22,000 <small>點 · 區間最低</small></div>
+        <div class="bars" id="b2"></div>
+        <div class="axis-days" id="b2d"></div>
+        <span class="tag2">整段都在門檻之上，還差 7,000 點</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 第二卡 -->
+  <div class="card">
+    <div class="route">
+      <span class="air">TPE</span><span class="arrow">→</span><span class="air">KIX</span>
+      <span class="cn">桃園 → 關西（大阪）　·　2026-12-15 ～ 12-24　·　單程</span>
+    </div>
+    <div class="meta">星宇 JX820 · 此刻掃描區間 10 天 · 3 分鐘前</div>
+    <div class="cabins">
+      <div class="cab hit">
+        <div class="lbl"><span>經濟艙</span><span class="thresh">門檻 ≤ 10,000<span class="pen">✎</span></span></div>
+        <div class="pts">7,500 <small>點 · 最低在 12/21</small></div>
+        <div class="bars" id="b3"></div>
+        <div class="axis-days" id="b3d"></div>
+        <span class="tag ok">✅ 有 3 天跌破門檻</span>
+      </div>
+      <div class="cab hit">
+        <div class="lbl"><span>商務艙</span><span class="thresh">門檻 ≤ 15,000<span class="pen">✎</span></span></div>
+        <div class="pts">15,000 <small>點 · 多天達標</small></div>
+        <div class="bars" id="b4"></div>
+        <div class="axis-days" id="b4d"></div>
+        <span class="tag ok">✅ 達標！</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="add" onclick="openModal()">＋ 新增追蹤航線</button>
+  <footer>Day 2 of 100 · Vibe Coding Marathon<br>圖表＝此刻掃描快照（哪天飛便宜）· 點「＋新增追蹤航線」看新增流程</footer>
+</div>
+
+<!-- ===== 新增航線 modal ===== -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <h2>新增追蹤航線 <span class="x" onclick="closeModal()">✕</span></h2>
+    <div class="sect">
+      <label>飛哪裡（只收星宇飛得到的機場）</label>
+      <div class="ports">
+        <div class="pwrap">
+          <input class="inp" id="from" placeholder="出發地，例：TPE 或 桃園" autocomplete="off" oninput="ac(this,'acFrom')" onfocus="ac(this,'acFrom')">
+          <div class="ac" id="acFrom"></div>
+        </div>
+        <button class="swap" onclick="swap()" title="對調">⇄</button>
+        <div class="pwrap">
+          <input class="inp" id="to" placeholder="目的地，例：NRT 或 成田" autocomplete="off" oninput="ac(this,'acTo')" onfocus="ac(this,'acTo')">
+          <div class="ac" id="acTo"></div>
+        </div>
+      </div>
+    </div>
+    <div class="sect">
+      <label>什麼時候飛（給區間，命中率更高）</label>
+      <div class="dates">
+        <input class="inp" id="d1" type="date" value="2026-12-01" onchange="upd()">
+        <span style="color:var(--ink-dim)">到</span>
+        <input class="inp" id="d2" type="date" value="2026-12-10" onchange="upd()">
+      </div>
+      <div class="seg">
+        <button onclick="flex(this,'精確日期')">精確日期</button>
+        <button class="active" onclick="flex(this,'這段區間')">日期區間</button>
+        <button onclick="flex(this,'整個月')">整個月都行</button>
+      </div>
+      <div class="hint">里程優惠票哪天放出來看運氣 — 雷達會掃描區間內每一天，哪天便宜就通知哪天。</div>
+    </div>
+    <div class="sect">
+      <label>想追的艙等 & 通知門檻（已帶星宇甜蜜點，可改）</label>
+      <div class="cabrow">
+        <input type="checkbox" id="cE" checked onchange="upd()">
+        <span class="nm">經濟艙</span><span class="mid">低於</span>
+        <input class="num" id="tE" value="7500" oninput="upd()"><span class="mid">點通知我</span>
+      </div>
+      <div class="cabrow">
+        <input type="checkbox" id="cB" checked onchange="upd()">
+        <span class="nm">商務艙</span><span class="mid">低於</span>
+        <input class="num" id="tB" value="15000" oninput="upd()"><span class="mid">點通知我</span>
+      </div>
+    </div>
+    <div class="confirm" id="confirm">📡 設定預覽會出現在這裡</div>
+    <div class="acts">
+      <button class="ghost" onclick="closeModal()">取消</button>
+      <button class="go" onclick="closeModal()">開始追蹤 →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === 區間每日點數長條圖：柱高=點數，門檻線下(便宜)=橘色 ===
+function bars(base,data,th){
+  const ps=data.map(x=>x.p),mx=Math.max(...ps),mn=Math.min(...ps),rng=(mx-mn)||1;
+  const H=p=>18+82*(p-mn)/rng;
+  const thPos=Math.max(3,Math.min(99,H(th)));
+  document.getElementById(base).innerHTML =
+    `<div class="thline" style="bottom:${thPos}%"><span>門檻 ${th.toLocaleString()}</span></div>`+
+    data.map(x=>`<div class="bar ${x.p<=th?'hit':''}" title="${x.d} 號：${x.p.toLocaleString()} 點"><i style="height:${H(x.p)}%"></i></div>`).join('');
+  document.getElementById(base+'d').innerHTML =
+    data.map(x=>`<span class="${x.p<=th?'hit':''}">${x.d}</span>`).join('');
+}
+bars('b1',[{d:1,p:15000},{d:2,p:12500},{d:3,p:7500},{d:4,p:10000},{d:5,p:15000},{d:6,p:15000},{d:7,p:7500},{d:8,p:12500},{d:9,p:10000},{d:10,p:15000}],7500);
+bars('b2',[{d:1,p:25000},{d:2,p:25000},{d:3,p:22000},{d:4,p:25000},{d:5,p:30000},{d:6,p:30000},{d:7,p:22000},{d:8,p:25000},{d:9,p:25000},{d:10,p:30000}],15000);
+bars('b3',[{d:15,p:12500},{d:16,p:12500},{d:17,p:10000},{d:18,p:15000},{d:19,p:12500},{d:20,p:12500},{d:21,p:7500},{d:22,p:10000},{d:23,p:15000},{d:24,p:12500}],10000);
+bars('b4',[{d:15,p:15000},{d:16,p:18000},{d:17,p:15000},{d:18,p:20000},{d:19,p:15000},{d:20,p:18000},{d:21,p:15000},{d:22,p:15000},{d:23,p:20000},{d:24,p:18000}],15000);
+
+// === 新增航線 modal ===
+const AIRPORTS=[
+ ['TPE','臺北桃園'],['HND','東京羽田'],['NRT','東京成田'],['KIX','大阪關西'],['FUK','福岡'],
+ ['NGO','名古屋中部'],['CTS','札幌新千歲'],['OKA','沖繩那霸'],['SIN','新加坡'],['BKK','曼谷'],
+ ['KUL','吉隆坡'],['MNL','馬尼拉'],['DAD','峴港'],['SGN','胡志明市'],['HAN','河內'],
+ ['PEN','檳城'],['MFM','澳門'],['HKG','香港'],['PVG','上海浦東'],['LAX','洛杉磯'],
+ ['SFO','舊金山'],['SEA','西雅圖'],['ONT','安大略']
+];
+function ac(input,boxId){
+  const q=input.value.trim().toUpperCase(), box=document.getElementById(boxId);
+  const hits=AIRPORTS.filter(a=>a[0].includes(q)||a[1].includes(input.value.trim())).slice(0,6);
+  box.innerHTML=hits.map(a=>`<div onclick="pick('${input.id}','${boxId}','${a[0]}','${a[1]}')"><span><b class="code">${a[0]}</b> ${a[1]}</span></div>`).join('');
+  box.classList.toggle('show',hits.length>0);
+}
+function pick(inId,boxId,code,name){document.getElementById(inId).value=code+' '+name;document.getElementById(boxId).classList.remove('show');upd();}
+function swap(){const f=document.getElementById('from'),t=document.getElementById('to');[f.value,t.value]=[t.value,f.value];upd();}
+function flex(btn,mode){[...btn.parentNode.children].forEach(b=>b.classList.remove('active'));btn.classList.add('active');window._flex=mode;upd();}
+window._flex='這段區間';
+function upd(){
+  const from=(document.getElementById('from').value||'起點'), to=(document.getElementById('to').value||'終點');
+  const d1=document.getElementById('d1').value, d2=document.getElementById('d2').value;
+  const parts=[];
+  if(document.getElementById('cE').checked) parts.push('經濟艙 ≤ '+Number(document.getElementById('tE').value||0).toLocaleString()+' 點');
+  if(document.getElementById('cB').checked) parts.push('商務艙 ≤ '+Number(document.getElementById('tB').value||0).toLocaleString()+' 點');
+  const when = window._flex==='整個月' ? (d1?d1.slice(0,7):'指定月份') : (window._flex==='精確日期'? d1 : d1+' ～ '+d2);
+  document.getElementById('confirm').innerHTML='📡 我會幫你盯：<b>'+from+' → '+to+'</b>，'+when+'，'+(parts.join('、')||'（請至少選一個艙等）')+'，發現就通知你。';
+}
+function openModal(){document.getElementById('mask').classList.add('open');}
+function closeModal(){document.getElementById('mask').classList.remove('open');}
+document.getElementById('mask').addEventListener('click',e=>{if(e.target.id==='mask')closeModal();});
+upd();
+</script>
+</body>
+</html>
