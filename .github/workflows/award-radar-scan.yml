@@ -9,10 +9,13 @@
 name: Award Radar Scan
 
 on:
-  schedule:
-    # GitHub cron 用 UTC，且尖峰可能延遲幾分鐘。'0 */3 * * *' = 每 3 小時整點（UTC）。
-    - cron: '0 */3 * * *'
-  workflow_dispatch: {}        # 也可在 Actions 頁面手動按一下觸發
+  # ⚠️ 排程已停用：實測 GitHub 機房 IP 會被 Alaska 的 Akamai 立刻 406 擋掉，
+  #    從這裡跑只會拿到 mock 假資料、還會把 repo 的真 data.json 蓋掉。
+  #    真實抓取要用住宅 IP（見 README「自動定時跑」段：本機 launchd / 自架 runner）。
+  #    保留 workflow_dispatch 供未來（若改走住宅 IP 的 self-hosted runner）手動測試。
+  # schedule:
+  #   - cron: '0 */3 * * *'   # 每 3 小時（UTC）
+  workflow_dispatch: {}        # 可在 Actions 頁面手動按一下觸發
 
 permissions:
   contents: write              # 需要把更新後的 data.json commit 回 repo
