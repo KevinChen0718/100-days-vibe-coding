@@ -29,8 +29,12 @@ npm run serve    # 開儀表板 http://localhost:4173
 編輯 `watchlist.json`，或在網頁點「＋新增追蹤航線」產生設定再貼進去。每條航線可設：起迄機場、日期區間、各艙等的通知門檻。
 
 ## 資料來源（這是分天攻的關鍵設計）
-- **Day 2（現在）**：`sources/alaska.js` 是 **mock 模擬資料**；可放 `overrides/<航線id>.json` 灌入真實點數。
-- **Day 3**：把 `queryRoute()` 換成真實抓取（自動查 Alaska），**其餘程式完全不用動**——這就是把最難最脆的部分隔離成一個模組的好處。
+- **Day 2**：`sources/alaska.js` 是 **mock 模擬資料**；可放 `overrides/<航線id>.json` 灌入真實點數。
+- **Day 3（現在）**：`queryRoute()` 改成**真實抓取**——直接 `fetch` Alaska（不開瀏覽器、不用登入），**其餘程式（掃描／門檻／通知／儀表板）完全沒動**——這就是把最難最脆的部分隔離成一個模組的好處。發現它有兩條資料路，各有取捨：
+  - **【主力】月曆端點** `POST /search/api/shoulderDates`（`fareView:"as_awards"`）：一次回錨點 ±15 天（≈31 天）的**每日最低獎勵票里程**，純 JSON、**不受下面那個限速地雷影響**。一條航線打一次就拿整段——這是預設走的路。代價：不分艙等／航空公司，給的是「當天最低獎勵票里程」（星宇獨大的亞洲線上＝星宇經濟，所以對應到 **經濟艙**；**商務艙本版不提供**）。
+  - **【次要】逐日端點** `GET /search/results/__data.json`：含航空公司／艙等／剩餘位數等細節，但**有 token-bucket 限速**（短時間連發約 7～10 次就鎖成連續 `406`、冷卻數分鐘），一次只能查一天。留給未來 #2 過濾航司 / #5 剩位提醒按需取用，預設不走。
+  - 抓到真票 → 標 `real`、才會推播；抓不到 → 自動退回 mock（標「模擬」、絕不發假通知）。
+  - `RADAR_SOURCE=mock npm run scan` 可強制走離線假資料（開發 / demo）。
 
 ## 之後：自動定時跑
 可掛 **GitHub Actions** 免費定時 `scan`，結果 commit 回 `data.json`，配 GitHub Pages 顯示，全程 serverless 不用自己開機。

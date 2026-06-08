@@ -1,0 +1,58 @@
+# 里程票雷達 — 每 3 小時自動掃描 Alaska 獎勵票，更新 data.json（並可選擇推通知）。
+# Day 3：把「手動跑 scan」升級成無人值守的排程。
+#
+# 設計重點：
+#   - 一次掃描只打約 3 個請求（月曆端點），溫和、降低被 Alaska 擋的機率。
+#   - 抓到真資料就 commit data.json 回 repo（dashboard / GitHub Pages 永遠看到最新）。
+#   - 通知走 Secrets：有設 DISCORD_WEBHOOK_URL / TELEGRAM_* 才推，沒設只更新資料。
+#   - 零 npm 依賴，不用 install。
+name: Award Radar Scan
+
+on:
+  schedule:
+    # GitHub cron 用 UTC，且尖峰可能延遲幾分鐘。'0 */3 * * *' = 每 3 小時整點（UTC）。
+    - cron: '0 */3 * * *'
+  workflow_dispatch: {}        # 也可在 Actions 頁面手動按一下觸發
+
+permissions:
+  contents: write              # 需要把更新後的 data.json commit 回 repo
+
+concurrency:
+  group: award-radar-scan      # 同時只跑一個，避免兩次掃描互相蓋 commit
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: day-002-award-radar
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 掃描 Alaska 獎勵票
+        env:
+          # 在 repo Settings → Secrets and variables → Actions 加這些，才會推通知；
+          # 沒加的話 scan 只會更新 data.json，不發訊息（不會報錯）。
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npm run scan
+
+      - name: 把更新後的 data.json commit 回 repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data.json; then
+            echo "data.json 沒變化，略過 commit"
+          else
+            git add data.json
+            git commit -m "chore(award-radar): 排程自動更新 data.json [skip ci]"
+            # 先把遠端可能的新 commit rebase 進來再推，避免衝突
+            git pull --rebase --autostash
+            git push
+          fi
