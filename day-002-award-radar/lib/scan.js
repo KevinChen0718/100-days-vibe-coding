@@ -10,6 +10,16 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const CABIN_NAME = { economy: '經濟艙', business: '商務艙' };
 const nowTaipei = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Taipei' }) + ' (UTC+8)';
 
+// 通知去重狀態：記「上次通知過的 routeId|cabin → {min, hitDates}」。
+// 只在「第一次達標 / 變更便宜 / 多了新日期」時才通知，避免排程每 3 小時對同一張票重複 ping。
+const STATE_PATH = join(ROOT, 'notify-state.json');
+function readNotifyState() {
+  try { return JSON.parse(readFileSync(STATE_PATH, 'utf8')); } catch { return {}; }
+}
+function writeNotifyState(state) {
+  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + '\n', 'utf8');
+}
+
 export function readWatchlist() {
   return JSON.parse(readFileSync(join(ROOT, 'watchlist.json'), 'utf8'));
 }
@@ -53,14 +63,36 @@ export async function runScan({ log = () => {}, sendAlerts = true } = {}) {
   const data = { scannedAt: nowTaipei(), source: SOURCE_MODE, results };
   writeFileSync(join(ROOT, 'data.json'), JSON.stringify(data, null, 2) + '\n', 'utf8');
 
-  let notified = 0;
-  if (sendAlerts && alerts.length && notifyEnabled()) {
-    for (const a of alerts) {
-      const sent = await notify(formatAlert(a));
-      if (sent.length) { notified++; log(`  ✔ 已通知（${sent.join('、')}）：${a.route.from}→${a.route.to} ${CABIN_NAME[a.cabin]}`); }
+  let notified = 0, suppressed = 0;
+  if (sendAlerts && notifyEnabled()) {
+    const prior = readNotifyState();
+    const newState = { ...prior };   // 預設保留（抓不到 / mock 的航線狀態不動，免得誤判「票沒了」）
+    // 1) 真資料但這次沒達標 → 票沒了，清掉紀錄（之後再達標會當「新」通知）
+    for (const r of results) for (const cabin of ['economy', 'business']) {
+      const c = r.cabins[cabin];
+      if (c && c.source === 'real' && !c.hit) delete newState[`${r.routeId}|${cabin}`];
     }
+    // 2) 達標的 → 去重判斷要不要通知
+    for (const a of alerts) {
+      const key = `${a.route.id}|${a.cabin}`;
+      const p = prior[key];
+      const newDates = p ? a.hitDays.filter(d => !p.hitDates.includes(d)) : a.hitDays;
+      const worthy = !p || a.min < p.min || newDates.length > 0;   // 第一次 / 變便宜 / 多新日期
+      if (worthy) {
+        const sent = await notify(formatAlert(a));
+        if (sent.length) {
+          notified++; newState[key] = { min: a.min, hitDates: a.hitDays };
+          log(`  ✔ 已通知（${sent.join('、')}）：${a.route.from}→${a.route.to} ${CABIN_NAME[a.cabin]}`);
+        }
+        // 送失敗 → 不更新 state，下次重試
+      } else {
+        suppressed++; newState[key] = p;   // 與上次相同，安靜，保留原紀錄
+        log(`  · ${a.route.from}→${a.route.to} ${CABIN_NAME[a.cabin]}：與上次通知相同，略過（去重）`);
+      }
+    }
+    writeNotifyState(newState);
   }
-  return { data, alertCount: alerts.length, notified, notifyReady: notifyEnabled() };
+  return { data, alertCount: alerts.length, notified, suppressed, notifyReady: notifyEnabled() };
 }
 
 function formatAlert({ route, cabin, threshold, min, hitDays }) {

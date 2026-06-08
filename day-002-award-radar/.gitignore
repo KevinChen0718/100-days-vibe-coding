@@ -1,3 +1,5 @@
 .env
 node_modules/
 overrides/*.local.json
+notify-state.json
+
