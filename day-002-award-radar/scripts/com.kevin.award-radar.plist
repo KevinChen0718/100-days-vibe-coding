@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 里程票雷達排程。安裝方式見同目錄 README 或下方註解。 -->
+<!-- 安裝：cp 到 ~/Library/LaunchAgents/ 後 launchctl bootstrap gui/$(id -u) <plist> -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.kevin.award-radar</string>
+
+  <!-- 每 3 小時跑一次（台北時間，launchd 用系統時區，不必換算 UTC）。
+       Mac 睡著時錯過的，會在喚醒後補跑一次。 -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>21</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/kevinchen/Documents/projects/100-days-vibe-coding/day-002-award-radar/scripts/scan-cron.sh</string>
+  </array>
+
+  <!-- 掃描輸出記到這（含每次抓到/失敗、達標、通知結果），方便回頭查 -->
+  <key>StandardOutPath</key>
+  <string>/Users/kevinchen/Library/Logs/award-radar.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/kevinchen/Library/Logs/award-radar.log</string>
+
+  <!-- 載入時不立刻跑，只照排程時間跑（要測就手動 launchctl kickstart）。 -->
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

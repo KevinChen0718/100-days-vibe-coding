@@ -36,8 +36,27 @@ npm run serve    # 開儀表板 http://localhost:4173
   - 抓到真票 → 標 `real`、才會推播；抓不到 → 自動退回 mock（標「模擬」、絕不發假通知）。
   - `RADAR_SOURCE=mock npm run scan` 可強制走離線假資料（開發 / demo）。
 
-## 之後：自動定時跑
-可掛 **GitHub Actions** 免費定時 `scan`，結果 commit 回 `data.json`，配 GitHub Pages 顯示，全程 serverless 不用自己開機。
+## 自動定時跑（本機 launchd，每 3 小時）
+
+> **為什麼不是 GitHub Actions？** 試過了，行不通：Alaska 的 Akamai 對 GitHub 機房 IP
+> 第一個請求就 `406` 擋掉（只認住宅 IP）。雲端免費排程跟「只認住宅 IP」本質衝突，
+> 所以排程改跑在自己 Mac 上（住宅 IP）。`.github/workflows/award-radar-scan.yml` 保留
+> 但排程已停用（留手動觸發），等之後若有住宅 IP 的 self-hosted runner 再啟用。
+
+排程用 macOS 原生 `launchd`，檔案在 `scripts/`：
+- `scripts/scan-cron.sh`：runner（source nvm 取 node → `node radar.js`）。通知讀專案的 `.env`。
+- `scripts/com.kevin.award-radar.plist`：每 3 小時（台北 0/3/6/9/12/15/18/21）；log 在 `~/Library/Logs/award-radar.log`。
+
+安裝 / 管理：
+```bash
+cp scripts/com.kevin.award-radar.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kevin.award-radar.plist  # 啟用
+launchctl kickstart -k gui/$(id -u)/com.kevin.award-radar                            # 立刻跑一次（測試）
+launchctl list | grep award-radar                                                    # 看狀態
+tail -f ~/Library/Logs/award-radar.log                                               # 看掃描紀錄
+launchctl bootout gui/$(id -u)/com.kevin.award-radar                                 # 停用
+```
+> Mac 睡著時錯過的排程，會在喚醒後補跑一次；要完全不漏就讓 Mac 保持開機。
 
 ## 檔案結構
 ```
