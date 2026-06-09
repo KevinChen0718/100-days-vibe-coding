@@ -24,7 +24,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/kevinchen/Documents/projects/100-days-vibe-coding/day-002-award-radar/scripts/scan-cron.sh</string>
+    <string>/Users/kevinchen/projects/100-days-vibe-coding/day-002-award-radar/scripts/scan-cron.sh</string>
   </array>
 
   <!-- 掃描輸出記到這（含每次抓到/失敗、達標、通知結果），方便回頭查 -->
