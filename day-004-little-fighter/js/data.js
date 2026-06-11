@@ -43,4 +43,16 @@ const CHARS = {
 
 const CHAR_KEYS = ['dan', 'blaze', 'frost', 'bolt'];
 
-if (typeof module !== 'undefined') module.exports = { CHARS, CHAR_KEYS };
+// 武器 — 會從天上掉下來,站在上面按攻擊撿起
+// heavy=true 拿著揮(有耐久),heavy=false 按攻擊丟出去;drink=true 是喝的
+const WEAPONS = {
+  bat:   { name: '球棒', heavy: true,  dmg: 40, reach: 80, kb: 5.5, down: true,  dur: 8,
+           swing: { dur: 26, a0: 7, a1: 14 } },
+  knife: { name: '小刀', heavy: true,  dmg: 34, reach: 64, kb: 2.5, down: false, dur: 10,
+           swing: { dur: 16, a0: 4, a1: 9 } },
+  stone: { name: '石頭', heavy: false, dmg: 55, dur: 2 },
+  soda:  { name: '汽水', heavy: false, drink: true, dmg: 25, dur: 1 },
+};
+const WEAPON_KEYS = ['bat', 'knife', 'stone', 'soda'];
+
+if (typeof module !== 'undefined') module.exports = { CHARS, CHAR_KEYS, WEAPONS, WEAPON_KEYS };

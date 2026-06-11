@@ -1,13 +1,15 @@
 'use strict';
 // 遊戲引擎 — 純邏輯零 DOM,瀏覽器與 Node 都能跑
-// 座標系:x 水平、z 縱深(畫面 y 位置)、y 離地高度(跳起為正);畫面位置 = (x, z - y)
+// 座標系:x 水平(世界座標,場景比螢幕寬)、z 縱深(畫面 y 位置)、y 離地高度
+// 畫面位置 = (x - camX, z - y)
 
 const W = 960, H = 540;
-const ZMIN = 315, ZMAX = 515, XMIN = 42, XMAX = 918;
+const STAGE_W = 1920;            // 世界寬度(兩個螢幕寬,攝影機跟著人捲動)
+const ZMIN = 315, ZMAX = 515, XMIN = 42, XMAX = STAGE_W - 42;
 const GRAV = 0.55;
 const HP_MAX = 500, MP_MAX = 500;
-const Z_HIT = 22;          // 攻擊允許的縱深誤差(LF2 精髓:沒對齊就打不到)
-const RUN_TAP_WINDOW = 14; // 雙擊跑步的判定幀數
+const Z_HIT = 22;                // 攻擊允許的縱深誤差(LF2 精髓:沒對齊就打不到)
+const RUN_TAP_WINDOW = 14;       // 雙擊跑步的判定幀數
 
 // 普通攻擊參數表:dur 總幀數 / a0~a1 有效命中幀 / reach 距離 / down 是否擊倒
 const ATK = {
@@ -26,8 +28,9 @@ function makeInput() {
 }
 
 class Fighter {
-  constructor(key, x, facing, pid, isAI) {
-    this.key = key; this.c = CHARS[key]; this.pid = pid; this.isAI = !!isAI;
+  constructor(key, x, facing, pid, team, isAI) {
+    this.key = key; this.c = CHARS[key]; this.pid = pid;
+    this.team = team || 0; this.isAI = !!isAI;
     this.x = x; this.z = (ZMIN + ZMAX) / 2; this.y = 0;
     this.vx = 0; this.vy = 0;
     this.facing = facing;
@@ -39,7 +42,8 @@ class Fighter {
     this.hitMap = {};        // 這一招已打中誰(pid → 命中幀)
     this.tapDir = 0; this.tapTimer = 99;
     this.castPlan = null;    // 施法中要生成的彈幕排程
-    this.aiCool = 0; this.aiDefT = 0; this.aiZoff = 0; this.aiZoffT = 0;
+    this.weapon = null;      // 手上的武器(items 裡的物件)
+    this.aiCool = 0; this.aiZoff = 0; this.aiZoffT = 0;
   }
   get grounded() { return this.y <= 0 && this.vy <= 0; }
   get busy() { // 不能接受新指令的狀態
@@ -48,21 +52,42 @@ class Fighter {
 }
 
 class Engine {
-  constructor(p1Key, p2Key, opts = {}) {
+  // specs: [{key, team, isAI}, ...] 出場名單;玩家固定排前面
+  constructor(specs, opts = {}) {
     this.frame = 0;
-    this.fighters = [
-      new Fighter(p1Key, 300, 1, 0, opts.p1AI),
-      new Fighter(p2Key, 660, -1, 1, opts.p2AI),
-    ];
+    const mid = (ZMIN + ZMAX) / 2, cx = STAGE_W / 2;
+    const cnt = [0, 0];
+    this.fighters = specs.map((s, i) => {
+      const n = cnt[s.team]++;
+      const x = s.team === 0 ? cx - 180 - n * 150 : cx + 180 + n * 150;
+      const f = new Fighter(s.key, x, s.team === 0 ? 1 : -1, i, s.team, s.isAI);
+      f.z = mid - 25 + n * 55;
+      return f;
+    });
     this.projs = [];
+    this.items = [];          // 場上武器
+    this.itemTimer = opts.noItems ? Infinity : 240; // 第一把武器約 4 秒後落下
     this.parts = [];          // 粒子(純資料,render 負責畫)
     this.banner = { text: 'FIGHT!', t: 70 };
-    this.intro = 50;          // 開場凍結幀
-    this.over = false; this.winner = null;
-    this.sfx = () => {};      // 由 main 注入音效 callback
+    this.intro = 50;
+    this.over = false; this.winners = null; this.winText = '';
+    this.sfx = () => {};
     this.shake = 0;
+    this.camX = cx - W / 2;
+    this.rngSeed = opts.seed || 12345;
   }
-  enemyOf(f) { return this.fighters[1 - f.pid]; }
+  // 可重現的偽亂數(給掉武器位置用,測試可控)
+  rng() { this.rngSeed = (this.rngSeed * 16807) % 2147483647; return this.rngSeed / 2147483647; }
+
+  enemiesOf(f) { return this.fighters.filter(o => o.team !== f.team && o.hp > 0); }
+  nearestEnemy(f) {
+    let best = null, bd = 1e9;
+    for (const e of this.enemiesOf(f)) {
+      const d = Math.abs(e.x - f.x) + Math.abs(e.z - f.z) * 2;
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
 
   step() {
     this.frame++;
@@ -74,13 +99,23 @@ class Engine {
     }
     for (const f of this.fighters) this.updateFighter(f);
     this.updateProjs();
+    this.updateItems();
     this.updateParts();
+    this.updateCam();
     this.checkEnd();
     for (const f of this.fighters) {
       const i = f.input;
       i.atkE = 0; i.jumpE = 0; i.leftE = 0; i.rightE = 0; i.runWish = 0;
       if (i.seq.length > 8) i.seq.splice(0, i.seq.length - 8);
     }
+  }
+
+  updateCam() {
+    const alive = this.fighters.filter(f => f.hp > 0);
+    const list = alive.length ? alive : this.fighters;
+    const avg = list.reduce((s, f) => s + f.x, 0) / list.length;
+    const target = Math.max(0, Math.min(STAGE_W - W, avg - W / 2));
+    this.camX += (target - this.camX) * 0.07;
   }
 
   // ---- 角色更新 ----
@@ -90,7 +125,6 @@ class Engine {
     f.tapTimer++;
     if (f.invuln > 0) f.invuln--;
     if (f.hitFlash > 0) f.hitFlash--;
-    // MP 回氣 + HP 慢慢回到暗紅可回復線
     if (f.hp > 0) {
       f.mp = Math.min(MP_MAX, f.mp + 0.7);
       if (f.hp < f.hpRec) f.hp = Math.min(f.hpRec, f.hp + 0.05);
@@ -107,6 +141,9 @@ class Engine {
       case 'uppercut': this.doUppercut(f); break;
       case 'spinkick': this.doSpinkick(f); break;
       case 'cast': this.doCast(f); break;
+      case 'weaponatk': this.doWeaponAtk(f, inp); break;
+      case 'throwitem': this.doThrowItem(f); break;
+      case 'drink': this.doDrink(f); break;
       case 'hurt':
         f.x += f.vx; f.vx *= 0.86;
         if (f.stateTimer > 16) this.setState(f, 'idle');
@@ -132,7 +169,6 @@ class Engine {
   setState(f, s) { f.state = s; f.stateTimer = 0; f.hitMap = {}; f.comboBuf = false; }
 
   groundControl(f, inp) {
-    // 防禦
     if (inp.def && f.state !== 'defend') { this.setState(f, 'defend'); return; }
     if (f.state === 'defend') {
       // 攻擊優先處理:不然「放開防禦+按攻擊」同一幀時,攻擊會被吃掉
@@ -168,7 +204,6 @@ class Engine {
       if (this.frame % 5 === 0) this.dust(f.x - f.facing * 14, f.z);
       return;
     }
-    // 走路
     let mx = (inp.right - inp.left), mz = (inp.down - inp.up);
     if (mx !== 0) f.facing = mx;
     f.x += mx * f.c.speed;
@@ -180,6 +215,20 @@ class Engine {
   startRun(f, dir) { f.facing = dir; this.setState(f, 'run'); }
 
   tryAttackFromGround(f, inp) {
+    // 1. 腳邊有武器且空手 → 撿起來
+    if (!f.weapon) {
+      const it = this.itemAt(f.x, f.z);
+      if (it) { this.pickupItem(f, it); return; }
+    }
+    // 2. 拿著武器 → 武器動作(揮 / 丟 / 喝)
+    if (f.weapon) {
+      const wp = WEAPONS[f.weapon.kind];
+      if (wp.drink) { this.setState(f, 'drink'); this.sfx('drinkOpen'); return; }
+      if (!wp.heavy) { this.setState(f, 'throwitem'); return; }
+      f.weaponLunge = f.state === 'run' ? 4 : 0;
+      this.setState(f, 'weaponatk'); this.sfx('swing'); return;
+    }
+    // 3. 空手 → 搓招或普攻
     if (this.trySpecial(f)) return;
     if (f.state === 'run') { this.setState(f, 'runattack'); f.combo = 0; this.sfx('whoosh'); return; }
     this.setState(f, 'attack1'); f.combo = 1; this.sfx('whoosh');
@@ -188,7 +237,14 @@ class Engine {
   airControl(f, inp) {
     f.x += (inp.right - inp.left) * f.c.speed * (f.runJump ? 1.5 : 0.85);
     f.z += (inp.down - inp.up) * 1.2;
-    if (inp.atkE) { this.setState(f, 'jumpattack'); this.sfx('whoosh'); return; }
+    if (inp.atkE) {
+      // 空中拿輕武器 → 空中丟;否則飛踢
+      if (f.weapon && !WEAPONS[f.weapon.kind].heavy && !WEAPONS[f.weapon.kind].drink) {
+        this.releaseThrow(f, 7, 0.5);
+      } else {
+        this.setState(f, 'jumpattack'); this.sfx('whoosh'); return;
+      }
+    }
     this.applyGravity(f, 'idle');
   }
 
@@ -207,7 +263,6 @@ class Engine {
     const a = ATK[f.state];
     if (a.lunge && f.stateTimer < a.a1) f.x += f.facing * a.lunge;
     if (f.stateTimer >= a.a0 && f.stateTimer <= a.a1) this.meleeHit(f, a);
-    // 連段預輸入:第一、二拳的後搖按攻擊 → 接下一拳
     if (inp.atkE && f.stateTimer > a.a0) f.comboBuf = true;
     if (f.stateTimer >= a.dur) {
       if (f.comboBuf && f.combo >= 1 && f.combo < 3) {
@@ -218,9 +273,8 @@ class Engine {
   }
 
   doJumpAttack(f) {
-    const a = ATK.jumpattack;
+    this.meleeHit(f, ATK.jumpattack);
     f.x += f.facing * 1.2;
-    this.meleeHit(f, a);
     this.applyGravity(f, 'idle');
   }
 
@@ -252,6 +306,130 @@ class Engine {
     if (f.stateTimer >= 26) { f.castPlan = null; this.setState(f, 'idle'); }
   }
 
+  // ---- 武器動作 ----
+  doWeaponAtk(f, inp) {
+    if (!f.weapon) { this.setState(f, 'idle'); return; } // 武器中途被打掉
+    const wp = WEAPONS[f.weapon.kind], sw = wp.swing;
+    if (f.weaponLunge && f.stateTimer < sw.a1) f.x += f.facing * f.weaponLunge;
+    if (f.stateTimer >= sw.a0 && f.stateTimer <= sw.a1) {
+      const hit = this.meleeHit(f, { reach: wp.reach, dmg: wp.dmg, kb: wp.kb, down: wp.down });
+      if (hit) {
+        this.sfx(f.weapon.kind === 'knife' ? 'slash' : 'clang');
+        if (--f.weapon.dur <= 0) this.breakItem(f.weapon);
+      }
+    }
+    if (f.stateTimer >= sw.dur) { f.weaponLunge = 0; this.setState(f, 'idle'); }
+  }
+
+  doThrowItem(f) {
+    if (f.stateTimer === 7) this.releaseThrow(f, 12, 0.8);
+    if (f.stateTimer >= 18) this.setState(f, 'idle');
+  }
+
+  releaseThrow(f, speed, upV) {
+    const it = f.weapon;
+    if (!it) return;
+    f.weapon = null;
+    it.heldBy = null; it.flying = true; it.team = f.team; it.thrower = f;
+    it.x = f.x + f.facing * 22; it.z = f.z; it.y = Math.max(40, f.y + 40);
+    it.vx = f.facing * speed; it.vy = upV; it.spin = 0;
+    this.sfx('throwItem');
+  }
+
+  doDrink(f) {
+    if (!f.weapon) { this.setState(f, 'idle'); return; }
+    if (this.frame % 9 === 0) this.sfx('gulp');
+    if (f.stateTimer >= 55) {
+      f.mp = Math.min(MP_MAX, f.mp + 250);
+      f.hpRec = Math.min(HP_MAX, f.hpRec + 60);
+      f.hp = Math.min(f.hpRec, f.hp + 60);
+      f.weapon.dead = true; f.weapon.heldBy = null; f.weapon = null;
+      this.burstParts(f.x, f.z - 60, '#aef3a0', 8, 'spark');
+      this.setState(f, 'idle');
+    }
+  }
+
+  // ---- 場上武器 ----
+  itemAt(x, z) {
+    return this.items.find(it => !it.dead && it.heldBy === null && !it.flying &&
+      it.y <= 0 && Math.abs(it.x - x) < 32 && Math.abs(it.z - z) < 24) || null;
+  }
+
+  pickupItem(f, it) {
+    f.weapon = it; it.heldBy = f.pid;
+    this.setState(f, 'idle');
+    this.sfx('pickup');
+  }
+
+  dropWeapon(f, dir) {
+    const it = f.weapon;
+    if (!it) return;
+    f.weapon = null;
+    it.heldBy = null; it.flying = false;
+    it.x = f.x + dir * 14; it.z = f.z; it.y = 30; it.vy = 2; it.vx = 0;
+    this.sfx('itemDrop');
+  }
+
+  breakItem(it) {
+    it.dead = true;
+    if (it.heldBy !== null) {
+      const o = this.fighters[it.heldBy];
+      if (o && o.weapon === it) o.weapon = null;
+      it.heldBy = null;
+    }
+    this.burstParts(it.x, it.z - it.y - 30, '#c8bba8', 12, 'spark');
+    this.sfx('break');
+  }
+
+  updateItems() {
+    // 定時掉一把新武器(場上未持有的不超過 3 把)
+    if (--this.itemTimer <= 0) {
+      const free = this.items.filter(it => !it.dead && it.heldBy === null).length;
+      if (free < 3) {
+        const kind = WEAPON_KEYS[Math.floor(this.rng() * WEAPON_KEYS.length)];
+        this.items.push({
+          kind, x: 120 + this.rng() * (STAGE_W - 240),
+          z: ZMIN + 20 + this.rng() * (ZMAX - ZMIN - 40),
+          y: 330, vy: 0, vx: 0, heldBy: null, flying: false, spin: 0,
+          dur: WEAPONS[kind].dur, dead: false,
+        });
+        this.sfx('itemFall');
+      }
+      this.itemTimer = 540 + this.rng() * 360; // 9~15 秒一把
+    }
+    for (const it of this.items) {
+      if (it.dead) continue;
+      if (it.heldBy !== null) { const o = this.fighters[it.heldBy]; it.x = o.x; it.z = o.z; it.y = o.y; continue; }
+      if (it.flying) {
+        // 丟出去的武器走平飛彈道(重力小),石頭才有 LF2 那種射程
+        it.x += it.vx; it.y += it.vy; it.vy -= 0.14; it.spin += 0.45;
+        // 丟出去的武器打人
+        for (const f of this.fighters) {
+          if (f.team === it.team || f.hp <= 0) continue;
+          if (f.state === 'lying' || f.invuln > 0) continue;
+          if (Math.abs(it.x - f.x) > 30 || Math.abs(it.z - f.z) > Z_HIT) continue;
+          if (it.y < f.y || it.y > f.y + 75) continue;
+          const ok = this.applyHit(f, it.thrower || f,
+            { dmg: WEAPONS[it.kind].dmg, kb: 4, down: true, fromX: it.x - it.vx });
+          if (ok) {
+            it.vx *= -0.25; it.vy = 2;
+            if (--it.dur <= 0) this.breakItem(it);
+            break;
+          }
+        }
+        if (it.y <= 0 && it.vy < 0) {
+          it.y = 0; it.vy = 0; it.vx = 0; it.flying = false;
+          this.dust(it.x, it.z); this.sfx('itemDrop');
+        }
+        if (it.x < -60 || it.x > STAGE_W + 60) it.dead = true;
+      } else if (it.y > 0) { // 從天上掉下來
+        it.y += it.vy; it.vy -= 0.5;
+        if (it.y <= 0) { it.y = 0; it.vy = 0; this.dust(it.x, it.z); this.sfx('itemDrop'); }
+      }
+    }
+    this.items = this.items.filter(it => !it.dead);
+  }
+
   doFall(f) {
     f.x += f.vx; f.vx *= 0.97;
     if (this.applyGravity(f, 'lying')) {
@@ -259,35 +437,38 @@ class Engine {
     }
   }
 
-  // ---- 近戰命中 ----
+  // ---- 近戰命中(回傳是否有打中人)----
   meleeHit(f, a, opt = {}) {
-    const e = this.enemyOf(f);
-    const dx = (e.x - f.x) * f.facing;
-    if (dx < 4 || dx > a.reach) return;
-    if (Math.abs(e.z - f.z) > Z_HIT) return;
-    if (Math.abs(e.y - f.y) > 52) return;
-    const last = f.hitMap[e.pid];
-    if (a.multi) {
-      if (last !== undefined && f.stateTimer - last < (opt.rehit || 8)) return;
-    } else if (last !== undefined) return;
-    f.hitMap[e.pid] = f.stateTimer;
-    const down = a.down || opt.lastDown;
-    this.applyHit(e, f, { dmg: a.dmg, kb: a.kb, down, upKb: opt.upKb });
+    let any = false;
+    for (const e of this.enemiesOf(f)) {
+      const dx = (e.x - f.x) * f.facing;
+      if (dx < 4 || dx > a.reach) continue;
+      if (Math.abs(e.z - f.z) > Z_HIT) continue;
+      if (Math.abs(e.y - f.y) > 52) continue;
+      const last = f.hitMap[e.pid];
+      if (a.multi) {
+        if (last !== undefined && f.stateTimer - last < (opt.rehit || 8)) continue;
+      } else if (last !== undefined) continue;
+      f.hitMap[e.pid] = f.stateTimer;
+      const down = a.down || opt.lastDown;
+      if (this.applyHit(e, f, { dmg: a.dmg, kb: a.kb, down, upKb: opt.upKb })) any = true;
+    }
+    return any;
   }
 
-  // ---- 傷害結算(近戰與彈幕共用)----
-  applyHit(t, atkr, { dmg, kb = 2, down = false, effect = null, upKb = 0 }) {
+  // ---- 傷害結算(近戰、彈幕、丟武器共用)----
+  applyHit(t, atkr, { dmg, kb = 2, down = false, effect = null, upKb = 0, fromX = null }) {
     if (t.state === 'lying' || t.invuln > 0 || t.state === 'win' || this.over) return false;
-    const dir = Math.sign(t.x - atkr.x) || -t.facing || 1;
-    const facingAttacker = t.facing === Math.sign(atkr.x - t.x);
-    // 防禦成功:傷害大減、不被擊倒
+    const srcX = fromX !== null ? fromX : atkr.x;
+    const dir = Math.sign(t.x - srcX) || -t.facing || 1;
+    const facingAttacker = t.facing === (Math.sign(srcX - t.x) || -t.facing);
     if (t.state === 'defend' && facingAttacker && t.frozenT <= 0) {
       dmg *= 0.12; down = false; effect = null;
       t.vx = 0; t.x += dir * kb * 2;
-      this.burstParts((t.x + atkr.x) / 2, t.z - 45, '#9fb7d4', 5, 'spark');
+      this.burstParts((t.x + srcX) / 2, t.z - 45, '#9fb7d4', 5, 'spark');
       this.sfx('block');
     } else {
-      this.burstParts((t.x + atkr.x) / 2, t.z - t.y - 45, '#ffd75e', 8, 'spark');
+      this.burstParts((t.x + srcX) / 2, t.z - t.y - 45, '#ffd75e', 8, 'spark');
       this.sfx(effect === 'freeze' ? 'freezeHit' : 'hit');
     }
     if (t.state === 'frozen') { t.frozenT = 0; down = true; effect = null;
@@ -306,6 +487,7 @@ class Engine {
       t.vx = dir * Math.max(2.5, kb); t.vy = upKb || 6.5;
       t.y = Math.max(t.y, 0.1);
       this.setState(t, 'fall');
+      if (t.weapon) this.dropWeapon(t, dir); // 被擊倒會掉武器
       if (effect === 'burn') this.burstParts(t.x, t.z - 50, '#ff8c3a', 14, 'flame');
     } else if (t.state !== 'defend') {
       t.vx = dir * kb * 0.8;
@@ -361,11 +543,11 @@ class Engine {
 
   spawnProj(f, spec) {
     this.projs.push({
-      kind: spec.kind, owner: f.pid,
+      kind: spec.kind, owner: f.pid, team: f.team,
       x: f.x + f.facing * 30, z: f.z, y: 38,
       vx: f.facing * spec.speed,
       dmg: spec.dmg, effect: spec.effect || null,
-      life: spec.life || 200, wide: !!spec.wide, small: !!spec.small,
+      life: spec.life || 260, wide: !!spec.wide, small: !!spec.small,
       seed: (this.frame * 7 + f.pid * 13) % 100,
     });
     this.sfx(spec.kind === 'fire' ? 'fire' : spec.kind === 'ice' || spec.kind === 'storm' ? 'ice' : 'shoot');
@@ -375,20 +557,20 @@ class Engine {
     for (const p of this.projs) {
       p.x += p.vx; p.life--;
       if (p.kind === 'homing') {
-        const t = this.fighters[1 - p.owner];
-        const dz = t.z - p.z;
-        p.z += Math.max(-1.8, Math.min(1.8, dz * 0.09));
+        const t = this.nearestEnemy(this.fighters[p.owner]);
+        if (t) {
+          const dz = t.z - p.z;
+          p.z += Math.max(-1.8, Math.min(1.8, dz * 0.09));
+        }
       }
-      // 尾跡粒子
       if (this.frame % 2 === 0) {
         const col = { blast: '#8df0ff', fire: '#ff9a3a', ice: '#cfeaff', homing: '#9af09a', storm: '#dff2ff' }[p.kind];
         this.addP(p.x - p.vx * 2, p.z - p.y + (Math.random() - 0.5) * 8, -p.vx * 0.2, -0.3, col, 8, p.kind === 'fire' ? 'flame' : 'spark');
       }
-      if (p.x < -40 || p.x > W + 40 || p.life <= 0) { p.dead = true; continue; }
-      // 打中角色
+      if (p.x < -40 || p.x > STAGE_W + 40 || p.life <= 0) { p.dead = true; continue; }
       const zw = p.wide ? 42 : Z_HIT, xw = p.wide ? 46 : 28;
       for (const f of this.fighters) {
-        if (f.pid === p.owner || p.dead) continue;
+        if (f.team === p.team || p.dead || f.hp <= 0) continue;
         if (f.state === 'lying' || f.invuln > 0) continue;
         if (Math.abs(p.z - f.z) > zw || Math.abs(p.x - f.x) > xw) continue;
         if (f.y > 46) continue; // 跳起來可以躲彈
@@ -401,11 +583,10 @@ class Engine {
         }
       }
     }
-    // 彈互撞 → 同歸於盡
     for (let i = 0; i < this.projs.length; i++) {
       for (let j = i + 1; j < this.projs.length; j++) {
         const a = this.projs[i], b = this.projs[j];
-        if (a.dead || b.dead || a.owner === b.owner) continue;
+        if (a.dead || b.dead || a.team === b.team) continue;
         if (Math.abs(a.z - b.z) < 26 && Math.abs(a.x - b.x) < 32) {
           a.dead = b.dead = true;
           this.burstParts((a.x + b.x) / 2, a.z - a.y, '#ffffff', 14, 'spark');
@@ -418,7 +599,7 @@ class Engine {
 
   // ---- 粒子 ----
   addP(x, y, vx, vy, color, life, kind) {
-    if (this.parts.length > 220) return;
+    if (this.parts.length > 260) return;
     this.parts.push({ x, y, vx, vy, color, life, max: life, kind, size: 2 + Math.random() * 3 });
   }
   burstParts(x, y, color, n, kind) {
@@ -445,16 +626,21 @@ class Engine {
 
   checkEnd() {
     if (this.over) return;
-    for (const f of this.fighters) {
-      if (f.hp <= 0 && f.state === 'lying' && f.stateTimer > 40) {
-        this.over = true;
-        this.winner = this.enemyOf(f);
-        if (this.winner.grounded && this.winner.hp > 0) this.setState(this.winner, 'win');
-        this.banner = { text: 'K.O.!', t: 9999 };
-        this.sfx('ko');
+    for (const team of [0, 1]) {
+      const members = this.fighters.filter(f => f.team === team);
+      const wiped = members.every(f => f.hp <= 0 && f.state === 'lying' && f.stateTimer > 40);
+      if (!wiped) continue;
+      this.over = true;
+      this.winners = this.fighters.filter(f => f.team !== team);
+      this.winText = this.winners.map(f => f.c.name).join(' & ') + ' 獲勝!';
+      for (const w of this.winners) {
+        if (w.hp > 0 && w.grounded) this.setState(w, 'win');
       }
+      this.banner = { text: 'K.O.!', t: 9999 };
+      this.sfx('ko');
+      return;
     }
   }
 }
 
-if (typeof module !== 'undefined') module.exports = { Engine, Fighter, W, H, ZMIN, ZMAX, HP_MAX, MP_MAX };
+if (typeof module !== 'undefined') module.exports = { Engine, Fighter, W, H, STAGE_W, ZMIN, ZMAX, HP_MAX, MP_MAX };
