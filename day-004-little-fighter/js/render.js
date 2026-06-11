@@ -108,7 +108,12 @@ function poseOf(f, frame) {
   const p = { legF: 0.16, legB: -0.16, armF: 0.45, armB: -0.3, lean: 0,
               crouch: 0, armFLen: 18, armBLen: 18, rot: 0, bob: 0, kick: 0, alpha: 1, jitter: 0 };
   switch (f.state) {
-    case 'idle': p.bob = Math.sin(frame * 0.09 + f.pid * 2) * 1.6; p.armF = 0.55 + Math.sin(frame * 0.09) * 0.05; break;
+    case 'idle': // 格鬥架式:雙拳抬起、腳步張開,跟著呼吸微晃
+      p.bob = Math.sin(frame * 0.09 + f.pid * 2) * 1.8;
+      p.armF = 1.0 + Math.sin(frame * 0.09 + f.pid * 2) * 0.06; p.armFLen = 13;
+      p.armB = 0.78; p.armBLen = 11;
+      p.legF = 0.3; p.legB = -0.3; p.lean = 0.05;
+      break;
     case 'walk': { const s = Math.sin(t * 0.28);
       p.legF = s * 0.55; p.legB = -s * 0.55; p.armF = 0.4 - s * 0.5; p.armB = -0.2 + s * 0.5; break; }
     case 'run': { const s = Math.sin(t * 0.38);
@@ -159,80 +164,146 @@ function poseOf(f, frame) {
 }
 function atkProg(t, a0, a1) { return Math.max(0, Math.min(1, (t - a0 + 3) / (a1 - a0 + 2))); }
 
+// 90 年代格鬥 sprite 風:擬真比例 + 黑邊描線,先畫進半解析度離屏再 2 倍放大
+// (關閉平滑)→ 像素顆粒感。畫的內容仍是原創角色,只是風格語彙向那個年代靠。
+const PIX = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+if (PIX) { PIX.width = 112; PIX.height = 104; }
+
 function drawFighter(g, f, frame, scale = 1) {
   const c = f.c;
   const p = poseOf(f, frame);
   const flash = f.hitFlash > 0;
   const col = (x) => flash ? '#ffffff' : x;
+
+  // --- 半解析度離屏:0.5 倍畫骨架 ---
+  const px = PIX.getContext('2d');
+  px.clearRect(0, 0, 112, 104);
+  px.save();
+  px.translate(56, 96);
+  px.scale(f.facing * 0.5, 0.5);
+  if (p.rot) { px.translate(0, f.state === 'lying' ? -10 : -32); px.rotate(p.rot); px.translate(0, f.state === 'lying' ? 10 : 32); }
+  px.translate(p.jitter, p.bob + p.crouch);
+  px.rotate(p.lean * 0.5);
+  drawBody(px, f, c, p, frame, col);
+  px.restore();
+
+  // --- 放大 2 倍貼回世界(不平滑 → 顆粒) ---
   g.save();
-  g.translate(f.x + p.jitter, f.z - f.y);
+  g.translate(f.x, f.z - f.y);
   let alpha = p.alpha;
   if (f.invuln > 0 && Math.floor(frame / 4) % 2 === 0) alpha *= 0.45;
   g.globalAlpha = Math.max(0.05, alpha);
-  g.scale(f.facing * scale, scale);
-  if (p.rot) { g.translate(0, f.state === 'lying' ? -9 : -26); g.rotate(p.rot); g.translate(0, f.state === 'lying' ? 9 : 26); }
-  g.translate(0, p.bob + p.crouch);
-  g.rotate(p.lean * 0.5);
-
-  // 自爆蓄力紅光
-  if (f.state === 'explode') {
+  if (f.state === 'explode') { // 自爆蓄力紅光(不像素化)
     const k = Math.min(1, f.stateTimer / 12);
     g.fillStyle = `rgba(255,90,30,${0.25 * k})`;
-    g.beginPath(); g.arc(0, -38, 50 + k * 30, 0, 7); g.fill();
+    g.beginPath(); g.arc(0, -42 * scale, (52 + k * 32) * scale, 0, 7); g.fill();
   }
-
-  g.lineCap = 'round';
-  const limb = (x0, y0, ang, len, wdt, color) => {
-    const x1 = x0 + Math.sin(ang) * len, y1 = y0 + Math.cos(ang) * len;
-    g.strokeStyle = col(color); g.lineWidth = wdt;
-    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-    return [x1, y1];
-  };
-  let e = limb(-3, -40, p.armB, p.armBLen, 7, c.shirt);
-  g.fillStyle = col(c.skin); g.beginPath(); g.arc(e[0], e[1], 4.2, 0, 7); g.fill();
-  e = limb(-2, -27, p.legB, 26, 8, c.pants);
-  g.fillStyle = col(c.shoes); g.beginPath(); g.ellipse(e[0] + 2, e[1], 6.5, 4, 0, 0, 7); g.fill();
-  e = limb(2, -27, p.legF, p.kick ? 30 : 26, 8.5, c.pants);
-  g.fillStyle = col(c.shoes); g.beginPath(); g.ellipse(e[0] + 2, e[1], 6.5, 4, 0, 0, 7); g.fill();
-  g.fillStyle = col(c.shirt);
-  rr(g, -9, -46, 18, 22, 6); g.fill();
-  g.fillStyle = 'rgba(0,0,0,.12)'; rr(g, -9, -30, 18, 6, 3); g.fill();
-  const hx = 1.5 + p.lean * 6, hy = -57;
-  g.fillStyle = col(c.skin); g.beginPath(); g.arc(hx, hy, 13, 0, 7); g.fill();
-  drawHair(g, c, hx, hy, col);
-  if (c.band) { g.fillStyle = col(c.band); g.fillRect(hx - 13, hy - 7, 26, 4.5); }
-  const ko = f.hp <= 0, ouch = ['hurt', 'fall', 'caught'].includes(f.state);
-  const dizzy = f.state === 'stunned';
-  g.strokeStyle = '#3a2a20'; g.fillStyle = '#3a2a20'; g.lineWidth = 1.6;
-  if (ko) {
-    xEye(g, hx + 7, hy - 1); xEye(g, hx + 1, hy - 1);
-  } else if (dizzy) {
-    // 暈眩:蚊香眼
-    for (const ex of [hx + 1.5, hx + 7.5]) {
-      g.beginPath(); g.arc(ex, hy - 1, 2.6, 0, 4.5 + Math.sin(frame * 0.2)); g.stroke();
-    }
-    g.beginPath(); g.arc(hx + 4, hy + 5, 2, 0, 7); g.fill();
-  } else if (ouch) {
-    g.beginPath(); g.moveTo(hx + 5, hy - 3); g.lineTo(hx + 9, hy - 1); g.stroke();
-    g.beginPath(); g.moveTo(hx + 3, hy - 3); g.lineTo(hx - 1, hy - 1); g.stroke();
-    g.beginPath(); g.arc(hx + 4, hy + 5, 2.5, 0, 7); g.fill();
-  } else {
-    g.beginPath(); g.arc(hx + 7.5, hy - 1, 1.7, 0, 7); g.fill();
-    g.beginPath(); g.arc(hx + 1.5, hy - 1, 1.7, 0, 7); g.fill();
-    g.beginPath(); g.moveTo(hx + 3, hy + 5.5); g.lineTo(hx + 8, hy + 5.5); g.stroke();
-  }
-  e = limb(3, -40, p.armF, p.armFLen, 7.5, c.shirt);
-  g.fillStyle = col(c.skin); g.beginPath(); g.arc(e[0], e[1], 4.6, 0, 7); g.fill();
-  if (f.weapon) drawHeldWeapon(g, f.weapon.kind, e[0], e[1], p.armF);
+  const sm = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(PIX, 0, 0, 112, 104, -112 * scale, -192 * scale, 224 * scale, 208 * scale);
+  g.imageSmoothingEnabled = sm;
 
   if (f.state === 'frozen') {
     g.globalAlpha = 0.55 * alpha; g.fillStyle = '#a8d8f8';
-    rr(g, -21, -78, 42, 82, 9); g.fill();
+    rr(g, -24 * scale, -94 * scale, 48 * scale, 98 * scale, 9); g.fill();
     g.globalAlpha = 0.9 * alpha; g.strokeStyle = '#e8f6ff'; g.lineWidth = 2;
-    rr(g, -21, -78, 42, 82, 9); g.stroke();
-    g.beginPath(); g.moveTo(-10, -70); g.lineTo(-2, -50); g.lineTo(-8, -30); g.stroke();
+    rr(g, -24 * scale, -94 * scale, 48 * scale, 98 * scale, 9); g.stroke();
+    g.beginPath(); g.moveTo(-11 * scale, -82 * scale); g.lineTo(-2 * scale, -58 * scale); g.lineTo(-9 * scale, -34 * scale); g.stroke();
   }
   g.restore();
+}
+
+// 角色本體(全尺寸座標,腳底 = 0,身高約 88px)
+function drawBody(g, f, c, p, frame, col) {
+  const O = '#181210'; // 描邊色
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  // 帶手肘/膝蓋弧度與黑描邊的肢體
+  const limb = (x0, y0, ang, len, w, color, bend = 0.3) => {
+    const x1 = x0 + Math.sin(ang) * len, y1 = y0 + Math.cos(ang) * len;
+    const mx = (x0 + x1) / 2 + Math.cos(ang) * bend * len * 0.5;
+    const my = (y0 + y1) / 2 - Math.sin(ang) * bend * len * 0.5;
+    g.strokeStyle = O; g.lineWidth = w + 3.5;
+    g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx, my, x1, y1); g.stroke();
+    g.strokeStyle = col(color); g.lineWidth = w;
+    g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx, my, x1, y1); g.stroke();
+    return [x1, y1];
+  };
+  const fist = (e, r) => {
+    g.fillStyle = O; g.beginPath(); g.arc(e[0], e[1], r + 1.6, 0, 7); g.fill();
+    g.fillStyle = col(c.skin); g.beginPath(); g.arc(e[0], e[1], r, 0, 7); g.fill();
+  };
+  const shoe = (e) => {
+    g.fillStyle = O; g.beginPath(); g.ellipse(e[0] + 2.5, e[1], 8.2, 5.4, 0, 0, 7); g.fill();
+    g.fillStyle = col(c.shoes); g.beginPath(); g.ellipse(e[0] + 2.5, e[1], 6.8, 4.2, 0, 0, 7); g.fill();
+  };
+  // 手臂打直(出拳/施法)時手肘弧度變小
+  const armLenF = p.armFLen + 9, armLenB = p.armBLen + 9;
+  const bendF = armLenF > 28 ? 0.07 : 0.38;
+  const bendB = armLenB > 28 ? 0.07 : 0.38;
+
+  // 後手
+  let e = limb(-8, -57, p.armB, armLenB, 6.5, c.shirt, bendB);
+  fist(e, 4.4);
+  // 後腿 / 前腿(踢擊伸直,膝蓋弧度收掉)
+  e = limb(-4.5, -32, p.legB, 33, 8, c.pants, 0.22);
+  shoe(e);
+  e = limb(4.5, -32, p.legF, p.kick ? 37 : 33, 8.5, c.pants, p.kick ? 0.05 : 0.22);
+  shoe(e);
+  // 軀幹:寬肩窄腰
+  g.fillStyle = col(c.shirt);
+  g.beginPath();
+  g.moveTo(-12, -62);
+  g.quadraticCurveTo(0, -66, 12, -62);
+  g.lineTo(9, -36);
+  g.quadraticCurveTo(0, -33, -9, -36);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = O; g.lineWidth = 2.4; g.stroke();
+  g.fillStyle = 'rgba(0,0,0,.16)'; rr(g, -9, -40, 18, 5, 2); g.fill(); // 腰帶
+  // 脖子 + 頭(擬真比例的小頭)
+  const hx = 1 + p.lean * 5, hy = -72;
+  g.strokeStyle = O; g.lineWidth = 7.5;
+  g.beginPath(); g.moveTo(hx - 1, -62); g.lineTo(hx - 1, -65); g.stroke();
+  g.strokeStyle = col(c.skin); g.lineWidth = 5;
+  g.beginPath(); g.moveTo(hx - 1, -61); g.lineTo(hx - 1, -65); g.stroke();
+  g.fillStyle = O; g.beginPath(); g.ellipse(hx, hy, 11, 12, 0, 0, 7); g.fill();
+  g.fillStyle = col(c.skin); g.beginPath(); g.ellipse(hx, hy, 9.5, 10.5, 0, 0, 7); g.fill();
+  // 髮型(沿用原本的造型,縮放到小頭)
+  g.save();
+  g.translate(hx, hy); g.scale(0.8, 0.8); g.translate(-hx, -hy + 1);
+  drawHair(g, c, hx, hy, col);
+  g.restore();
+  if (c.band) {
+    g.fillStyle = O; g.fillRect(hx - 10.5, hy - 6.5, 21, 5.5);
+    g.fillStyle = col(c.band); g.fillRect(hx - 10, hy - 6, 20, 4.2);
+  }
+  // 臉
+  const ko = f.hp <= 0, ouch = ['hurt', 'fall', 'caught'].includes(f.state);
+  const dizzy = f.state === 'stunned';
+  g.strokeStyle = '#241812'; g.fillStyle = '#241812'; g.lineWidth = 1.5;
+  if (ko) {
+    xEye(g, hx + 5.5, hy - 1); xEye(g, hx + 0.5, hy - 1);
+  } else if (dizzy) {
+    for (const ex of [hx + 0.5, hx + 5.5]) {
+      g.beginPath(); g.arc(ex, hy - 1, 2.2, 0, 4.5 + Math.sin(frame * 0.2)); g.stroke();
+    }
+    g.beginPath(); g.arc(hx + 3, hy + 4.5, 1.8, 0, 7); g.fill();
+  } else if (ouch) {
+    g.beginPath(); g.moveTo(hx + 3.5, hy - 2.5); g.lineTo(hx + 7, hy - 1); g.stroke();
+    g.beginPath(); g.moveTo(hx + 2, hy - 2.5); g.lineTo(hx - 1.5, hy - 1); g.stroke();
+    g.beginPath(); g.arc(hx + 3, hy + 4.5, 2.2, 0, 7); g.fill();
+  } else {
+    // 戰鬥眉 + 雙眼
+    g.beginPath(); g.moveTo(hx + 3.5, hy - 4); g.lineTo(hx + 7.5, hy - 3); g.stroke();
+    g.beginPath(); g.moveTo(hx + 1.5, hy - 4); g.lineTo(hx - 2, hy - 3); g.stroke();
+    g.beginPath(); g.arc(hx + 5.5, hy - 0.5, 1.4, 0, 7); g.fill();
+    g.beginPath(); g.arc(hx + 0.5, hy - 0.5, 1.4, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(hx + 1.5, hy + 5); g.lineTo(hx + 5.5, hy + 5); g.stroke();
+  }
+  // 前手
+  e = limb(8, -57, p.armF, armLenF, 7, c.shirt, bendF);
+  fist(e, 4.8);
+  if (f.weapon) drawHeldWeapon(g, f.weapon.kind, e[0], e[1], p.armF);
 }
 function xEye(g, x, y) {
   g.beginPath(); g.moveTo(x - 2.4, y - 2.4); g.lineTo(x + 2.4, y + 2.4);
