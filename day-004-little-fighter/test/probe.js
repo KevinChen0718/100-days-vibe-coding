@@ -8,11 +8,11 @@ for (const f of ['js/data.js', 'js/engine.js', 'js/ai.js'])
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), c, { filename: f });
 const Engine = vm.runInContext('Engine', c);
 
-const a = process.argv[2] || 'bolt', b = process.argv[3] || 'blaze';
+const a = process.argv[2] || 'dennis', b = process.argv[3] || 'firen';
 const is2v2 = process.argv.includes('--2v2');
 const specs = is2v2
-  ? [{ key: a, team: 0, isAI: true }, { key: 'dan', team: 0, isAI: true },
-     { key: b, team: 1, isAI: true }, { key: 'frost', team: 1, isAI: true }]
+  ? [{ key: a, team: 0, isAI: true }, { key: 'davis', team: 0, isAI: true },
+     { key: b, team: 1, isAI: true }, { key: 'freeze', team: 1, isAI: true }]
   : [{ key: a, team: 0, isAI: true }, { key: b, team: 1, isAI: true }];
 const eng = new Engine(specs, {});
 

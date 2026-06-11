@@ -16,10 +16,11 @@ const sel = { mode: 1, humans: 1, p1Idx: 0, p2Idx: 3, p1Done: false, p2Done: fal
 
 // 標題示範角色與選角預覽
 const demoFighters = [
-  new Fighter('dan', 150, 1, 0, 0), new Fighter('blaze', 810, -1, 1, 1),
+  new Fighter('davis', 150, 1, 0, 0), new Fighter('firen', 810, -1, 1, 1),
 ];
 demoFighters.forEach(f => { f.z = 470; });
 const previews = CHAR_KEYS.map((k, i) => new Fighter(k, 0, 1, i, i % 2));
+const NCHAR = CHAR_KEYS.length;
 
 // 鍵位:code → [玩家, 動作]
 const KEYMAP = {
@@ -35,7 +36,7 @@ function fightKey(pid, act, down) {
   if (!f || f.isAI) return;
   const inp = f.input;
   if (act === 'atk') { if (down) inp.atkE = 1; return; }
-  if (act === 'jump') { if (down) inp.jumpE = 1; return; }
+  if (act === 'jump') { inp.jump = down ? 1 : 0; if (down) inp.jumpE = 1; return; }
   if (act === 'def') {
     inp.def = down ? 1 : 0;
     if (down) inp.seq.push({ k: 'def', f: eng.frame });
@@ -43,7 +44,7 @@ function fightKey(pid, act, down) {
   }
   inp[act] = down ? 1 : 0;
   if (down) {
-    inp.seq.push({ k: act, f: eng.frame });
+    inp.seq.push({ k: act, f: eng.frame }); // 上下左右都進搓招序列(防+下+跳 這類指令要用)
     if (act === 'left') inp.leftE = 1;
     if (act === 'right') inp.rightE = 1;
   }
@@ -103,13 +104,13 @@ window.addEventListener('keydown', e => {
   if (screen === 'select') {
     if (e.code === 'Escape') { screen = 'title'; return; }
     if (!sel.p1Done) {
-      if (e.code === 'KeyA') { sel.p1Idx = (sel.p1Idx + 3) % 4; SFX.play('select'); }
-      if (e.code === 'KeyD') { sel.p1Idx = (sel.p1Idx + 1) % 4; SFX.play('select'); }
+      if (e.code === 'KeyA') { sel.p1Idx = (sel.p1Idx + NCHAR - 1) % NCHAR; SFX.play('select'); }
+      if (e.code === 'KeyD') { sel.p1Idx = (sel.p1Idx + 1) % NCHAR; SFX.play('select'); }
       if (e.code === 'KeyJ') { sel.p1Done = true; SFX.play('confirm'); }
     }
     if (sel.humans > 1 && !sel.p2Done) {
-      if (e.code === 'ArrowLeft') { sel.p2Idx = (sel.p2Idx + 3) % 4; SFX.play('select'); }
-      if (e.code === 'ArrowRight') { sel.p2Idx = (sel.p2Idx + 1) % 4; SFX.play('select'); }
+      if (e.code === 'ArrowLeft') { sel.p2Idx = (sel.p2Idx + NCHAR - 1) % NCHAR; SFX.play('select'); }
+      if (e.code === 'ArrowRight') { sel.p2Idx = (sel.p2Idx + 1) % NCHAR; SFX.play('select'); }
       if (e.code === 'Comma') { sel.p2Done = true; SFX.play('confirm'); }
     }
     return;
@@ -146,9 +147,9 @@ function stepOnce() {
     if (humansDone() && sel.cpuKeys.length < cpuCount()) {
       // 電腦選角小動畫:輪盤閃幾下,逐一定下來
       sel.cpuT++;
-      if (sel.cpuT % 6 === 0) { sel.cpuFlash = Math.floor(Math.random() * 4); SFX.play('select'); }
+      if (sel.cpuT % 6 === 0) { sel.cpuFlash = Math.floor(Math.random() * NCHAR); SFX.play('select'); }
       if (sel.cpuT >= 30) {
-        sel.cpuKeys.push(CHAR_KEYS[Math.floor(Math.random() * 4)]);
+        sel.cpuKeys.push(CHAR_KEYS[Math.floor(Math.random() * NCHAR)]);
         sel.cpuT = 0; sel.cpuFlash = -1; SFX.play('confirm');
       }
     } else if (humansDone() && sel.cpuKeys.length >= cpuCount()) {
