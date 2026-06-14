@@ -1,0 +1,9 @@
+{
+  "_說明": "這裡列的航線會被 scan.js 拿去抓『真實票價』。網頁要看到某條航線標『真實』，這裡要有同樣的 origin/destination/airline/tripType/departDate/returnDate/cabin。日期請填未來的真實日期。",
+  "routes": [
+    { "origin": "TPE", "destination": "NRT", "airline": "ANY", "tripType": "roundtrip", "departDate": "2026-08-15", "returnDate": "2026-08-22", "cabin": "economy", "target": 11000 },
+    { "origin": "TPE", "destination": "ICN", "airline": "ANY", "tripType": "roundtrip", "departDate": "2026-07-25", "returnDate": "2026-07-29", "cabin": "economy", "target": 8000 },
+    { "origin": "TPE", "destination": "BKK", "airline": "ANY", "tripType": "roundtrip", "departDate": "2026-09-17", "returnDate": "2026-09-25", "cabin": "economy", "target": 9500 },
+    { "origin": "TPE", "destination": "LAX", "airline": "ANY", "tripType": "roundtrip", "departDate": "2026-10-12", "returnDate": "2026-10-26", "cabin": "economy", "target": 28000 }
+  ]
+}

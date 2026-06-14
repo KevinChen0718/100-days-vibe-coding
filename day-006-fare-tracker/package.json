@@ -1,0 +1,10 @@
+{
+  "name": "fare-tracker",
+  "version": "1.0.0",
+  "description": "國外機票價格追蹤看板（100 天 Vibe Coding Day 6）",
+  "private": true,
+  "scripts": {
+    "scan": "node scan.js",
+    "serve": "python3 -m http.server 8760"
+  }
+}

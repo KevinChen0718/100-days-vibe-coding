@@ -1,0 +1,8 @@
+# 金鑰絕不進 git
+.env
+
+# 抓取產生的真實資料（各自在本機跑 scan.js 生成）
+data.json
+
+node_modules/
+.DS_Store
