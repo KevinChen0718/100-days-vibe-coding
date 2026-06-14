@@ -13,7 +13,7 @@
 | 003 | 里程票雷達（接續 Day 2） | 接上真正的 Alaska 即時資料（月曆端點一次回整段、免登入/不開瀏覽器）、本機 launchd 每 3 小時自動排程、通知去重。踩穿限速 / datacenter IP 封鎖 / SvelteKit 資料解析等坑。 | [day-002-award-radar](day-002-award-radar/) |
 | 004 | 小朋友齊打交・致敬復刻版 | 復刻 LF2 的 2.5D 格鬥遊戲：原作五人眾 Davis/Dennis/Woody/Firen/Freeze，招式指令與 MP 消耗照官方 control guide 對齊；縱深命中、搓招連發、抓投（打暈→抓住→毆打/過肩摔）、倒地受身、撿武器（含召喚冰劍）、2v2 群架（4 種模式）、競技場捲軸（三層視差）。機制照抄、美術音效全原創，零依賴。 | [day-004-little-fighter](day-004-little-fighter/) |
 | 005 | 霜峽行動 Operation Frostfjord | 致敬《Commandos: Behind Enemy Lines》第一關的即時戰術潛行：三人小隊（刀殺/手槍/開船）分散登陸挪威雪岸，奪艇渡海用油桶炸掉無線電中繼站。視野錐雙區（近區蹲了也沒用、遠區蹲低隱形）、敵兵三態 FSM、背後刀殺、搬屍體藏灌木、誘餌、快速存讀檔；A* 尋路、ASCII 地圖資料驅動、85 條 Node 回歸測試含腳本化通關驗證。機制重寫、素材全原創，零依賴。 | [day-005-frostfjord](day-005-frostfjord/) |
-| 006 | 票價軌跡 Fare Tracker | 國外機票價格追蹤看板：盯緊一條條國際線的現金票價，看過去 90 天價格軌跡，判斷「現在該買還是該等」。買點訊號＝現價百分位＋距出發天數；模型疊了提前購買曲線、季節性、隨機漫步與限時促銷。手刻 SVG 圖表（含懸停十字線）、目標價達標亮燈、localStorage 持久化、零依賴。票價為誠實標示的可重現模擬資料，架構已留真資料接口。 | [day-006-fare-tracker](day-006-fare-tracker/) |
+| 006 | 票價軌跡 Fare Tracker | 國外機票價格追蹤看板：盯國際線票價、看價格軌跡、判斷「現在該買還是該等」。買點訊號＝現價百分位＋距出發天數；區域→國家→城市三層篩選、航空公司與來回/單程、目標價達標亮燈、手刻 SVG 圖表（含懸停十字線）、localStorage 持久化。資料層可替換且誠實標示——先做可重現模擬（標「模擬」），再接 **Travelpayouts 真實票價**（Node `scan.js` 抓最低價寫 `data.json`＋launchd 每 3 小時排程，抓到標「真實」、抓不到退「模擬」；真實價為該出發月最低）。 | [day-006-fare-tracker](day-006-fare-tracker/) |
 
 ## 玩法慣例
 
