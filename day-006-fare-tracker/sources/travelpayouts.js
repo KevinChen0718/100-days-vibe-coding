@@ -61,10 +61,11 @@ async function fetchCheapest(route, token, opts = {}) {
   }
 
   let rows = json.data || [];
-  // 指定航空 → 過濾（Travelpayouts 的 airline 是 IATA code，例如 CI/BR/JX）
+  // 指定航空 → 只認那家；資料源沒有它的票就老實回「查無」，
+  // 絕不拿別家航空的便宜票頂替（否則會掛錯航空名、誤導使用者）。
   if (route.airline && route.airline !== 'ANY') {
-    const f = rows.filter((r) => r.airline === route.airline);
-    if (f.length) rows = f;
+    rows = rows.filter((r) => r.airline === route.airline);
+    if (!rows.length) return { ok: true, found: false, note: 'no_airline_data' };
   }
   if (!rows.length) return { ok: true, found: false };
 

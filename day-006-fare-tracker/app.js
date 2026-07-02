@@ -77,6 +77,48 @@
     } catch (e) { REAL = {}; } // file:// 開、或還沒跑 scan.js → 全部走模擬
   }
 
+  /* ---------- 後端同步（serve.js 在跑時才有；靜態開啟則自動降級為純模擬）---------- */
+  let hasServer = false;
+  let fetchingRealId = null; // 正在向後端抓真實價的航線 id（給詳情頁顯示「抓取中」）
+  async function pingServer() {
+    try {
+      const r = await fetch('/api/ping', { cache: 'no-store' });
+      if (r.ok) hasServer = !!(await r.json()).ok;
+    } catch (e) { hasServer = false; }
+  }
+  async function syncTrack(route) {
+    if (!hasServer) return null;
+    try {
+      const r = await fetch('/api/track', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(route),
+      });
+      return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+  }
+  function syncUntrack(id) {
+    if (!hasServer) return;
+    fetch('/api/untrack', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    }).catch(() => {});
+  }
+  // 有後端時，追蹤清單以伺服器的 watchlist 為準（這樣換瀏覽器/換 port 都看得到同一份）
+  async function loadWatchlist() {
+    if (!hasServer) return;
+    try {
+      const r = await fetch('/api/watchlist', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      if (!Array.isArray(j.routes)) return;
+      state.routes = j.routes.map((x) => {
+        const route = Object.assign({ airline: 'ANY', tripType: 'roundtrip', cabin: 'economy' }, x);
+        route.id = E.routeId(route);
+        if (!route.addedAt) route.addedAt = 0;
+        return route;
+      });
+      save();
+    } catch (e) { /* 取不到就沿用 localStorage */ }
+  }
+
   /* ---------- 取得某航線的序列 + 分析（有真實資料優先，否則模擬）---------- */
   function evalRoute(r) {
     const real = REAL[r.id];
@@ -417,6 +459,10 @@
       ? `<div class="target-info">目標 <b>${E.money(r.target)}</b><br>${s.hitTarget ? '<span style="color:var(--green);font-weight:700">已跌破！</span>' : '差 ' + E.money(Math.max(0, s.current - r.target))}</div>`
       : `<div class="target-info">未設目標價</div>`;
     const sourceTag = e.isReal ? `<span class="tag real">● 真實</span>` : `<span class="tag sim">● 模擬</span>`;
+    // 真實航線顯示「實際抓到的航空」（不限航空時會是某家廉航/全服務；指定航空時就是那家）
+    const airShort = (e.isReal && e.real && e.real.foundAirline)
+      ? ((E.AIRLINES[e.real.foundAirline] || {}).short || e.real.foundAirline)
+      : (E.AIRLINES[r.airline] || E.AIRLINES.ANY).short;
     const trendHTML = e.accumulating ? '' : `<span class="trend ${s.trend}">${tArrow} ${tTxt}</span>`;
     const subHTML = e.accumulating
       ? `<div class="vsavg">真實資料累積中（已記錄 ${e.series.length} 天）</div>`
@@ -436,7 +482,7 @@
       </div>
       <div class="route-tags">
         ${sourceTag}
-        <span class="tag air">${(E.AIRLINES[r.airline] || E.AIRLINES.ANY).short}</span>
+        <span class="tag air">${airShort}</span>
         <span class="tag cabin">${E.CABINS[r.cabin].label}</span>
         <span class="tag ${r.tripType === 'oneway' ? 'ow' : ''}">${tripDateStr(r)}</span>
         <span class="tag">剩 ${s.daysToDep} 天</span>
@@ -467,17 +513,26 @@
     const { svg } = bigChartSVG(curEval.series, r.target, COLOR[s.trend]);
     const acc = curEval.accumulating;
 
+    const providerLabel = { amadeus: 'Amadeus', travelpayouts: 'Travelpayouts' };
+    const provName = curEval.real && providerLabel[curEval.real.provider] || '真實資料';
     const sourceLine = curEval.isReal
-      ? `<span class="tag real" style="vertical-align:middle">● 真實票價（Travelpayouts）</span>`
+      ? `<span class="tag real" style="vertical-align:middle">● 真實票價（${provName}）</span>`
       : `<span class="tag sim" style="vertical-align:middle">● 模擬資料</span>`;
-    // 真實價是「該出發月最低」，把實際最便宜落在哪天／哪家航空講清楚
     let realNote = '';
     if (curEval.isReal && curEval.real) {
       const rl = curEval.real;
       const an = rl.foundAirline ? ((E.AIRLINES[rl.foundAirline] || {}).name || rl.foundAirline) : '';
       const dep = rl.foundDepart ? formatDateShort(rl.foundDepart) : '';
       const ret = rl.foundReturn ? '–' + formatDateShort(rl.foundReturn) : '';
-      realNote = `<div class="real-note">ℹ️ 此為 <b>${r.departDate.slice(0, 7)} 出發月的最低票價</b>${an ? `，由 <b>${an}</b> 提供` : ''}${dep ? `，實際最低落在 <b>${dep}${ret}</b> 出發` : ''}。你設定的確切日期 (${formatDateShort(r.departDate)}${r.tripType !== 'oneway' && r.returnDate ? '–' + formatDateShort(r.returnDate) : ''}) 不一定剛好是這個價。</div>`;
+      if (rl.provider === 'amadeus') {
+        // Amadeus 是查你選的確切日期、真實 GDS 票價
+        realNote = `<div class="real-note">✅ <b>Amadeus 即時票價</b>${an ? `，最低為 <b>${an}</b>` : ''}，依你選的日期查詢。屬 GDS 公佈票價，可能與航空官網促銷價略有差異。</div>`;
+      } else {
+        // Travelpayouts 是「該出發月最低」的快取價
+        realNote = `<div class="real-note">ℹ️ 此為 <b>${r.departDate.slice(0, 7)} 出發月的最低票價</b>（Travelpayouts 快取）${an ? `，由 <b>${an}</b> 提供` : ''}${dep ? `，實際最低落在 <b>${dep}${ret}</b> 出發` : ''}。你設定的確切日期不一定剛好是這個價。</div>`;
+      }
+    } else if (!curEval.isReal && fetchingRealId === r.id) {
+      realNote = `<div class="real-note">📡 正在抓真實價…（先顯示模擬，抓到會自動換成真實）</div>`;
     }
     const trendHTML = acc ? '' :
       `<span class="trend ${s.trend}">${s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '▬'} 近一週 ${s.trend === 'flat' ? '持平' : (s.trendPct > 0 ? '+' : '') + s.trendPct + '%'}</span>`;
@@ -585,6 +640,7 @@
 
   function removeRoute(id) {
     state.routes = state.routes.filter((r) => r.id !== id);
+    syncUntrack(id); // 後端在跑就一併從 watchlist 移除
     save(); render();
   }
 
@@ -648,7 +704,7 @@
   function openAdd(prefill) { buildSelects(prefill); $('#addBg').classList.add('open'); }
   function closeAdd() { $('#addBg').classList.remove('open'); }
 
-  function confirmAdd() {
+  async function confirmAdd() {
     const trip = getFormTrip();
     const r = {
       origin: $('#fOrigin').value,
@@ -669,18 +725,41 @@
     r.id = E.routeId(r);
     if (state.routes.some((x) => x.id === r.id)) { alert('這條航線（含航空/日期/艙等）已經在追蹤清單了'); closeAdd(); return; }
     state.routes.unshift(r);
-    save(); closeAdd(); render();
-    // 加完直接打開詳情，給即時回饋
+    save(); closeAdd();
+    // 有後端 → 標記「抓取中」，先用模擬即時回饋，再向後端抓真實價、回來翻新
+    if (hasServer) fetchingRealId = r.id;
+    render();
     openDetail(r.id);
+    if (hasServer) {
+      const synced = await syncTrack(r);
+      fetchingRealId = null;
+      if (synced) await loadReal();
+      render();
+      // 詳情還開著且就是這條 → 重開以套用真實資料
+      if ($('#detailBg').classList.contains('open') && curEval && curEval.route.id === r.id) openDetail(r.id);
+    }
   }
 
   /* =====================================================================
    * 啟動
    * ===================================================================== */
+  // 開頁時把「還沒抓過真實價」的航線補抓一次（含使用者之前手動加、還沒同步到後端的）
+  async function backfillReal() {
+    if (!hasServer) return;
+    const pending = state.routes.filter((r) => !REAL[r.id]); // REAL 有 key（real 或試過 none）就跳過
+    if (!pending.length) return;
+    for (const r of pending) await syncTrack(r);
+    await loadReal();
+    render();
+  }
+
   async function init() {
     load();
-    await loadReal(); // 先載真實資料（沒有就全模擬），再渲染
+    await pingServer();   // 偵測有沒有後端（serve.js）
+    await loadWatchlist(); // 有後端 → 追蹤清單以伺服器為準
+    await loadReal();     // 載真實資料（沒有就全模擬）
     render();
+    backfillReal();       // 背景補抓未同步的航線（不擋畫面）
 
     $('#addBtn').addEventListener('click', () => openAdd());
     $('#addClose').addEventListener('click', closeAdd);

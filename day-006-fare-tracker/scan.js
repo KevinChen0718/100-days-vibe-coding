@@ -14,8 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const E = require('./engine.js');
-const { loadEnv } = require('./lib/env.js');
-const { fetchCheapest } = require('./sources/travelpayouts.js');
+const { fetchReal, sources } = require('./sources/resolve.js');
 
 const ROOT = __dirname;
 const DATA = path.join(ROOT, 'data.json');
@@ -27,13 +26,12 @@ function loadJson(p, dflt) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  const env = loadEnv();
-  const token = process.env.TP_TOKEN || env.TP_TOKEN;
-  if (!token) {
-    console.error('✗ 找不到 TP_TOKEN。請複製 .env.example 成 .env，把 Travelpayouts token 填進去。');
-    console.error('  （免費註冊 https://www.travelpayouts.com → Profile → API token）');
+  const srcs = sources();
+  if (!srcs.length) {
+    console.error('✗ 沒有設定任何資料來源。請複製 .env.example 成 .env，填入 AMADEUS_KEY/SECRET 或 TP_TOKEN。');
     process.exit(1);
   }
+  console.log('資料來源：' + srcs.join(' → ') + '\n');
 
   const watch = (loadJson(WATCH, { routes: [] }).routes) || [];
   if (!watch.length) {
@@ -54,13 +52,14 @@ async function main() {
 
     const rec = (prev.routes && prev.routes[id]) || { source: 'real', history: [] };
     try {
-      const res = await fetchCheapest(r, token);
+      const res = await fetchReal(r);
       if (res.ok && res.found) {
         rec.source = 'real';
         rec.current = res.price;
         rec.currency = res.currency;
+        rec.provider = res.provider;
         rec.foundAirline = res.airline;
-        rec.foundDepart = (res.departure_at || '').slice(0, 10) || null; // 該月實際最低的出發日
+        rec.foundDepart = (res.departure_at || '').slice(0, 10) || null;
         rec.foundReturn = (res.return_at || '').slice(0, 10) || null;
         rec.history = (rec.history || []).filter((h) => h.date !== t); // 同日重跑覆蓋
         rec.history.push({ date: t, price: res.price });
@@ -68,12 +67,15 @@ async function main() {
         rec.lastOk = t;
         delete rec.note;
         okCount++;
-        console.log(`OK  ${res.price} ${res.currency}${res.airline ? ' (' + res.airline + ')' : ''}`);
+        console.log(`OK  ${res.price} ${res.currency}${res.airline ? ' (' + res.airline + ')' : ''} [${res.provider}]`);
       } else if (res.ok) {
-        rec.note = 'no_data';
-        console.log('查無資料');
+        // 明確查無（含「指定航空沒資料」）→ 標記非真實，清掉舊的真實價，讓前端退回模擬
+        rec.source = 'none'; rec.current = null; rec.note = res.note || 'no_data'; rec.lastTry = t;
+        console.log('查無資料（' + (res.note || 'no_data') + '）');
       } else {
-        rec.note = 'error:' + (res.status || '?');
+        // 連線/HTTP 錯誤視為暫時性：保留上次的真實價，只記 note（別誤判「票沒了」）
+        rec.note = 'error:' + (res.status || '?'); rec.lastTry = t;
+        if (rec.current == null) rec.source = 'none';
         console.log('失敗', res.status || '', res.error || '');
       }
     } catch (e) {

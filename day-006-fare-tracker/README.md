@@ -41,10 +41,13 @@ Day 2/3 做的「里程票雷達」追的是 **Alaska 里程換星宇** 的獎�
 | 接真資料後「過去 90 天軌跡」拿不到 | 真實 API 只給「現在最便宜多少」，沒人能倒退補過去的觀測 | 軌跡改成每天 scan 累積長出來；軌跡 <14 天時不給會誤導的買點百分位、改顯示「累積中」 | 模擬能憑空畫歷史，真實資料只能從今天開始記——這是模擬與真實最根本的差別 |
 | 純前端讀不到本機 data.json | `file://` 開網頁時 `fetch('data.json')` 被 CORS 擋 | 包在 try/catch，抓不到就靜默退回全模擬；接真資料時改用 server 開 | 一旦要真資料就回不去「雙擊開檔」了，得有後端＋server |
 | Travelpayouts 給確切遠期日期回空 | `departure_at=2026-08-15&return_at=2026-08-22` 一律 rows=0，以為壞了 | 改用「出發月」查（`departure_at=2026-08`）→ 穩定拿到「該月最低」，再把 API 實際回的最便宜日期一起存起來顯示 | 它的快取是「熱門搜尋結果」，確切遠期日太冷門沒資料；查月份才有料。誠實標明「此為該月最低、實際落在 X 日」，別讓人以為是你選的那天的價 |
+| 指定星宇卻顯示別家的便宜票 | adapter 有「指定航空找不到就退回用全部最便宜」的 fallback，星宇沒資料時抓了虎航的票卻掛「星宇」標籤 | 指定航空但來源沒它的票 → 老實回「查無」、退回模擬，絕不拿別家頂替；卡片改顯示「實際抓到的航空」 | 看板與航空官網對不起來的第一個元兇常是「掛錯航空」。fallback 省事但會說謊，寧可標模擬也別張冠李戴 |
+| 想直打星宇官網拿精準價，卻被擋 | 星宇訂票頁掛 Google reCAPTCHA Enterprise（隱形），自動抓取會被機器人驗證擋下 | 放棄直打星宇，改用 Amadeus（星宇有進 GDS、無 reCAPTCHA、可指定航空＋確切日期＋分艙） | 「快又準又免費又全覆蓋」不存在；要準就挑來源。航司官網最準但最會擋，GDS（Amadeus）是可自動化的務實解 |
 
 ## 五、成果怎麼看
 
-- **純看模擬版**：`open index.html`，第一次開自動鋪 4 條熱門線（東京/首爾/曼谷/洛杉磯）。
+- **純看模擬版**：`open index.html`，第一次開自動鋪 4 條熱門線（東京/首爾/曼谷/洛杉磯），全部模擬。
+- **真實版（推薦）**：`npm run serve`（＝`node serve.js`）→ 開 http://localhost:8760。在網頁新增/移除航線會**自動同步到後端並抓真實價**，追蹤清單以伺服器為準（換瀏覽器也看得到同一份）。
 - **玩法**：
   - 卡片右上 `＋ 新增追蹤航線` → 選出發地（台灣）、目的地、來回/單程＋日期、艙等、航空公司、目標價。航空公司會跟著目的地連動。
   - 上方篩選列：出發地、區域→國家→目的地三層連動、航空公司、行程，右側顯示「目前看幾條 / 共幾條」，按「清除篩選」還原。選到還沒追蹤的城市會出現「＋ 追蹤 OO」直接帶你去新增。
@@ -52,16 +55,19 @@ Day 2/3 做的「里程票雷達」追的是 **Alaska 里程換星宇** 的獎�
   - 三個排序：買點優先 / 跌最多 / 價格。
   - 設了目標價、現價跌破，卡片左上會亮綠色「🎯 已達標」。
 
-### 接真實票價（Travelpayouts）
+### 接真實票價（Amadeus 為主，Travelpayouts 備援）
 
-模擬版不用設定；想看真實票價照這四步：
+模擬版不用設定；想看真實票價：
 
-1. 免費註冊 [travelpayouts.com](https://www.travelpayouts.com) → Profile → 拿 API token。
-2. `cp .env.example .env`，把 token 填進 `TP_TOKEN`。
-3. 編輯 `watchlist.json` 放你要追的航線（要跟網頁追蹤的 origin/目的地/航空/日期/艙等一致才對得上），然後 `npm run scan`（即 `node scan.js`）。
-4. 用 server 開網頁（`npm run serve` 或任何靜態 server，不要用 `file://`）。抓到的航線會標「● 真實」，抓不到的退回「● 模擬」。
+1. 申請金鑰（擇一或都填，`.env.example` 有說明）：
+   - **Amadeus（推薦）**：[developers.amadeus.com](https://developers.amadeus.com) 建 App 拿 API Key/Secret。真實 GDS 票價、可指定航空（含星宇）、查確切日期、分艙等。**要正式環境(Production)金鑰才是真資料。**
+   - **Travelpayouts（備援）**：[travelpayouts.com](https://www.travelpayouts.com) → Profile → API token。快取的「該月最低」。
+2. `cp .env.example .env`，填入金鑰。
+3. `npm run serve` → 開 http://localhost:8760。**在網頁直接新增航線即可**——`serve.js` 自動寫進 `watchlist.json` 並立刻抓一次真實價，卡片翻成「● 真實」（標明來源 Amadeus／Travelpayouts；抓不到退「● 模擬」）。
 
-**資料來源誠實標示**：每條卡片標「真實／模擬」，頂端徽章顯示「X 真實 / Y 模擬」。真實軌跡靠 scan 每天累積，所以剛接上時只有今天一個點、會標「累積中」，跑幾天後折線才長出來。要自動化就把 `scan.js` 排進 launchd（比照 Day 3 award-radar 每 3 小時）。
+來源優先序：有 Amadeus 走 Amadeus，否則用 Travelpayouts。批次抓也行：`npm run scan` 寫出 `data.json`，再用 server 開（別用 `file://`）。
+
+**誠實標示**：每條卡片標真實／模擬，頂端徽章顯示「X 真實 / Y 模擬」，詳情頁標明資料來源。真實軌跡靠 scan 每天累積；剛接上只有今天一點、標「累積中」。Amadeus 查確切日期、Travelpayouts 給「該月最低」，兩者都標清楚。`serve.js` 與排程 `scan.js` 共用同一份 watchlist/data.json。
 
 **真實價是「該出發月最低」**：Travelpayouts 對確切遠期日期常常沒資料，所以 scan 用「出發月」查，拿到的是那個月的最低票價（詳情頁會標明實際最便宜落在哪天、哪家航空）。這跟你設定的確切日期不一定相同，但對「這條線現在大概多少、值不值得出手」的判斷剛好夠用。
 
@@ -77,8 +83,8 @@ launchctl list | grep fare-tracker   # 確認有載入
 
 ## 六、下次會怎麼做（給未來的自己）
 
-- **真實資料已接上＋已排程（Travelpayouts + launchd 每 3 小時）**：剩下可做——①行事曆圖（一次 API call 拿「未來各出發日最低價」，剛接上、軌跡還短時就有東西看）②`serve.js` 讓網頁直接管 watchlist + 觸發 scan，免手動編 json（award-radar 那套）③通知去重（達標推 Telegram/Discord）。
-- **艙等限制**：Travelpayouts 這個端點只給經濟艙最低價，商務/頭等拿不到真實價（要走 Amadeus 之類分艙的來源）。
+- **多來源可切換＋自動同步＋已排程**：Amadeus（真實 GDS、指定航空含星宇、確切日期、分艙）為主，Travelpayouts 備援；`serve.js` 網頁即時抓、launchd 每 3 小時。剩下可做——①行事曆圖 ②通知去重（達標推 Telegram/Discord）。
+- **星宇官網直打暫緩**：星宇訂票頁有 reCAPTCHA Enterprise，自動抓不可行 → 改靠 Amadeus 拿星宇真實價。
 - **真的能提醒**：現在「達標」只是 UI 標記，可接 Day 2 那套可插拔通知（Telegram/Discord）做真推播。
 - **價格預測**：現在是「現價 vs 歷史」，未來可加一條「依提前購買曲線預估接下來會漲還會跌」的預測帶。
 

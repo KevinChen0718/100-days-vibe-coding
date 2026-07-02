@@ -5,6 +5,6 @@
   "private": true,
   "scripts": {
     "scan": "node scan.js",
-    "serve": "python3 -m http.server 8760"
+    "serve": "node serve.js"
   }
 }
