@@ -10,6 +10,19 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const STORE = 'fare-tracker:v3';
 
+  // 外部來源字串（API 回的航空代碼、舊資料的機場代碼）進 innerHTML 前一律跳脫，
+  // 防 stored-XSS；也讓「一筆髒資料」只是顯示怪，不會炸掉整頁。
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  // 查機場：查無（舊資料裡的未知代碼）回一個佔位物件，不讓 undefined 往下炸
+  function airport(code) {
+    return E.AIRPORTS[code] || { city: code, country: '', flag: '', region: 'other' };
+  }
+  function cabinOf(r) { return E.CABINS[r.cabin] || E.CABINS.economy; }
+
   // 卡片折線顏色跟趨勢走（沿用 CSS 變數的色票）
   const COLOR = { up: '#C2553D', down: '#4F9D69', flat: '#D87C56' };
 
@@ -79,11 +92,16 @@
 
   /* ---------- 後端同步（serve.js 在跑時才有；靜態開啟則自動降級為純模擬）---------- */
   let hasServer = false;
+  let serverSources = []; // 後端回報的資料來源（空陣列＝沒設 token，全模擬）
   let fetchingRealId = null; // 正在向後端抓真實價的航線 id（給詳情頁顯示「抓取中」）
   async function pingServer() {
     try {
       const r = await fetch('/api/ping', { cache: 'no-store' });
-      if (r.ok) hasServer = !!(await r.json()).ok;
+      if (r.ok) {
+        const j = await r.json();
+        hasServer = !!j.ok;
+        serverSources = Array.isArray(j.sources) ? j.sources : [];
+      }
     } catch (e) { hasServer = false; }
   }
   async function syncTrack(route) {
@@ -273,14 +291,18 @@
 
     const realCount = evals.filter((e) => e.isReal).length;
     const badge = $('#srcBadge');
-    if (badge) badge.textContent = realCount > 0 ? `資料：${realCount} 真實 / ${evals.length - realCount} 模擬` : '模擬資料 Demo';
+    if (badge) {
+      if (realCount > 0) badge.textContent = `資料：${realCount} 真實 / ${evals.length - realCount} 模擬`;
+      else if (hasServer && !serverSources.length) badge.textContent = '模擬資料 Demo · 未設定 token（終端機跑 npm run setup 可接真實價）';
+      else badge.textContent = '模擬資料 Demo';
+    }
   }
 
   /* ---------- 篩選 ---------- */
   function applyFilters(evals) {
     const f = state.filters;
     return evals.filter((e) => {
-      const r = e.route, a = E.AIRPORTS[r.destination];
+      const r = e.route, a = airport(r.destination);
       if (f.origin !== 'all' && r.origin !== f.origin) return false;
       if (f.region !== 'all' && a.region !== f.region) return false;
       if (f.country !== 'all' && a.country !== f.country) return false;
@@ -355,7 +377,7 @@
     const avgPct = total ? Math.round(withStats.reduce((a, e) => a + e.stats.pct, 0) / total) : 0;
 
     const bestTxt = best
-      ? `${best.route.origin}→${best.route.destination} ${best.stats.vsAvgPct <= 0 ? '比均價低' : '比均價高'} ${Math.abs(best.stats.vsAvgPct)}%`
+      ? `${esc(best.route.origin)}→${esc(best.route.destination)} ${best.stats.vsAvgPct <= 0 ? '比均價低' : '比均價高'} ${Math.abs(best.stats.vsAvgPct)}%`
       : '—';
     const bestVal = best ? (best.stats.vsAvgPct > 0 ? '+' : '') + best.stats.vsAvgPct + '%' : '—';
 
@@ -439,16 +461,16 @@
 
   function cardHTML(e) {
     const r = e.route, s = e.stats;
-    const dst = E.AIRPORTS[r.destination], org = E.AIRPORTS[r.origin];
+    const dst = airport(r.destination), org = airport(r.origin);
     const head = `<div class="route-line">
-        <span>${org.flag}</span><span class="iata">${r.origin}</span>
+        <span>${org.flag}</span><span class="iata">${esc(r.origin)}</span>
         <span class="arrow">→</span>
-        <span>${dst.flag}</span><span class="iata">${r.destination}</span>
+        <span>${dst.flag}</span><span class="iata">${esc(r.destination)}</span>
       </div>`;
     if (!s) {
-      return `<div class="card" data-id="${r.id}">
+      return `<div class="card" data-id="${esc(r.id)}">
         <div class="card-top">${head}<button class="remove" title="移除">✕</button></div>
-        <div class="route-sub">${dst.city}</div>
+        <div class="route-sub">${esc(dst.city)}</div>
         <p style="color:var(--muted);font-size:13px;margin-top:20px">這條航線暫無資料。</p>
       </div>`;
     }
@@ -471,19 +493,19 @@
       ? `<span class="signal acc">📡 累積中</span>`
       : `<span class="signal ${s.signal}">${s.signalLabel}</span>`;
 
-    return `<div class="card" data-id="${r.id}">
+    return `<div class="card" data-id="${esc(r.id)}">
       ${deal}
       <div class="card-top">
         <div>
           ${head}
-          <div class="route-sub">${org.city} → ${dst.city}</div>
+          <div class="route-sub">${esc(org.city)} → ${esc(dst.city)}</div>
         </div>
         <button class="remove" title="移除">✕</button>
       </div>
       <div class="route-tags">
         ${sourceTag}
-        <span class="tag air">${airShort}</span>
-        <span class="tag cabin">${E.CABINS[r.cabin].label}</span>
+        <span class="tag air">${esc(airShort)}</span>
+        <span class="tag cabin">${cabinOf(r).label}</span>
         <span class="tag ${r.tripType === 'oneway' ? 'ow' : ''}">${tripDateStr(r)}</span>
         <span class="tag">剩 ${s.daysToDep} 天</span>
       </div>
@@ -507,7 +529,8 @@
     if (!r) return;
     curEval = evalRoute(r);
     const s = curEval.stats;
-    const dst = E.AIRPORTS[r.destination], org = E.AIRPORTS[r.origin];
+    if (!s) return; // 髒資料算不出統計 → 卡片已顯示「暫無資料」，不開詳情
+    const dst = airport(r.destination), org = airport(r.origin);
     const air = E.AIRLINES[r.airline] || E.AIRLINES.ANY;
     const trip = E.TRIP_TYPES[r.tripType] || E.TRIP_TYPES.roundtrip;
     const { svg } = bigChartSVG(curEval.series, r.target, COLOR[s.trend]);
@@ -521,7 +544,7 @@
     let realNote = '';
     if (curEval.isReal && curEval.real) {
       const rl = curEval.real;
-      const an = rl.foundAirline ? ((E.AIRLINES[rl.foundAirline] || {}).name || rl.foundAirline) : '';
+      const an = rl.foundAirline ? esc((E.AIRLINES[rl.foundAirline] || {}).name || rl.foundAirline) : '';
       const dep = rl.foundDepart ? formatDateShort(rl.foundDepart) : '';
       const ret = rl.foundReturn ? '–' + formatDateShort(rl.foundReturn) : '';
       if (rl.provider === 'amadeus') {
@@ -561,8 +584,8 @@
     $('#detailModal').innerHTML = `
       <div class="modal-head">
         <div>
-          <h3>${org.flag} ${r.origin} <span style="color:var(--terracotta)">→</span> ${dst.flag} ${r.destination}</h3>
-          <div class="sub">${org.city} → ${dst.city} · ${air.name} · ${trip.label} · ${E.CABINS[r.cabin].label}</div>
+          <h3>${org.flag} ${esc(r.origin)} <span style="color:var(--terracotta)">→</span> ${dst.flag} ${esc(r.destination)}</h3>
+          <div class="sub">${esc(org.city)} → ${esc(dst.city)} · ${air.name} · ${trip.label} · ${cabinOf(r).label}</div>
           <div class="sub">${formatDateLong(r.departDate)} 出發${r.tripType !== 'oneway' && r.returnDate ? ` · ${formatDateLong(r.returnDate)} 回程` : ''}（剩 ${s.daysToDep} 天）　${sourceLine}</div>
         </div>
         <button class="modal-close" id="detailClose">✕</button>

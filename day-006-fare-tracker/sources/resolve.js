@@ -8,15 +8,17 @@
 
 const amadeus = require('./amadeus.js');
 const tp = require('./travelpayouts.js');
-const { loadEnv } = require('../lib/env.js');
+const { loadEnv, realValue } = require('../lib/env.js');
 
 function creds() {
   const env = loadEnv();
+  // realValue：空值或「你的token貼這裡」這種佔位字一律視為未設定，
+  // 避免佔位字被當有效 token 去打 API 吃 401。
   return {
-    amaKey: process.env.AMADEUS_KEY || env.AMADEUS_KEY,
-    amaSecret: process.env.AMADEUS_SECRET || env.AMADEUS_SECRET,
-    amaHost: process.env.AMADEUS_HOST || env.AMADEUS_HOST,
-    tpToken: process.env.TP_TOKEN || env.TP_TOKEN,
+    amaKey: realValue(process.env.AMADEUS_KEY || env.AMADEUS_KEY),
+    amaSecret: realValue(process.env.AMADEUS_SECRET || env.AMADEUS_SECRET),
+    amaHost: realValue(process.env.AMADEUS_HOST || env.AMADEUS_HOST),
+    tpToken: realValue(process.env.TP_TOKEN || env.TP_TOKEN),
   };
 }
 
@@ -47,4 +49,4 @@ async function fetchReal(route, opts = {}) {
   return { ok: false, error: 'no_source' };
 }
 
-module.exports = { fetchReal, sources };
+module.exports = { fetchReal, sources, creds };
