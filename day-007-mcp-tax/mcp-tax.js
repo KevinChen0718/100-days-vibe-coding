@@ -243,7 +243,7 @@ function inspectStdioServer(server, timeoutMs) {
     };
 
     const timeout = setTimeout(() => {
-      finish(failedResult(server, formatFailureReason(`逾時 ${formatTimeoutSeconds(timeoutMs)} 秒`, stderrBuffer)), { group: true });
+      finish(failedResult(server, formatFailureReason(`等了 ${formatTimeoutSeconds(timeoutMs)} 秒沒回應`, stderrBuffer)), { group: true });
     }, timeoutMs);
 
     try {
@@ -492,7 +492,7 @@ function printTerminalReport(results, summary) {
 function statusText(result) {
   if (result.status === 'ok') return 'OK';
   if (result.status === 'skipped') return result.reason;
-  return `失敗：${result.reason}`;
+  return `連不上：${result.reason}`;
 }
 
 function printTable(headers, rows) {
@@ -751,39 +751,39 @@ function renderHtmlReceipt(results, summary) {
       <div>
         <div class="stamp">Estimated Tax Bill</div>
         <h1>MCP Token 稅單</h1>
-        <p class="subtitle">把 stdio MCP tool schema 佔掉的 context 變成看得見的帳單。所有 token 皆為估算值（約 ±20%）。</p>
+        <p class="subtitle">你每裝一個 MCP 工具，AI 開工前都得先讀完它的說明書。這張帳單算給你看：光是這些說明書，就先吃掉你多少對話空間（數字為估算，約 ±20%）。</p>
       </div>
       <aside class="rate-box">
-        <span>context 稅率</span>
+        <span>腦容量稅率</span>
         <strong>${formatPercent(summary.contextRate)}</strong>
       </aside>
     </header>
 
     <section class="summary">
-      <div class="metric"><span>估算總 token</span><strong>${formatInteger(summary.totalTokens)}</strong></div>
-      <div class="metric"><span>context window</span><strong>${formatInteger(summary.context)}</strong></div>
-      <div class="metric"><span>每 100 則訊息</span><strong>$${formatMoney(summary.costPer100Messages)} USD</strong></div>
+      <div class="metric"><span>說明書總重量（token）</span><strong>${formatInteger(summary.totalTokens)}</strong></div>
+      <div class="metric"><span>AI 腦容量上限（token）</span><strong>${formatInteger(summary.context)}</strong></div>
+      <div class="metric"><span>每聊 100 句先繳</span><strong>$${formatMoney(summary.costPer100Messages)} USD</strong></div>
     </section>
 
     <div class="section-title">
-      <h2>逐台列項</h2>
-      <small>工具數 / 估算 token / 佔比條</small>
+      <h2>誰在收稅</h2>
+      <small>工具數・說明書重量・吃掉多少腦容量</small>
     </div>
     <section class="server-list">
 ${rows}
     </section>
 
     <div class="section-title">
-      <h2>最重 tool 前 3 名</h2>
-      <small>依 schema 估算 token 排序</small>
+      <h2>最貴的三本說明書</h2>
+      <small>單一工具吃掉的空間排行</small>
     </div>
     <ol class="top-tools">
 ${topTools}
     </ol>
 
     <p class="fine-print">
-      <strong>計價假設：</strong>API 輸入計價 $${formatMoney(summary.pricePerMillion)} USD / 1M tokens，因此每 100 則訊息 ≈ $${formatMoney(summary.costPer100Messages)} USD。<br>
-      <strong>誠實註記：</strong>訂閱制不直接按 token 計費，此為 API 等值換算。HTTP / SSE / URL 型 server 在 v1 未計入（僅支援 stdio）。<br>
+      <strong>錢怎麼算的：</strong>這些說明書 AI 每則訊息都要重讀一次。假設走 API（輸入每百萬 token $${formatMoney(summary.pricePerMillion)} 美元），每聊 100 句 ≈ $${formatMoney(summary.costPer100Messages)} USD。<br>
+      <strong>誠實註記：</strong>如果你是訂閱制（Claude Pro／Max 那種），不會真的按 token 扣錢，這金額是換算成 API 的參考值。另外有些走網路連線的 server（HTTP／SSE 型）這版還算不到，僅支援 stdio。<br>
       產生時間：${escapeHtml(generatedAt)}
     </p>
   </main>
@@ -797,7 +797,7 @@ function renderServerRow(result, summary) {
   const rawWidth = summary.context > 0 ? result.tokens / summary.context * 100 : 0;
   const width = result.tokens > 0 ? Math.min(100, Math.max(0.5, rawWidth)) : 0;
   const numbers = result.status === 'ok'
-    ? `${formatInteger(result.toolCount)} tools / ${formatInteger(result.tokens)} tokens / ${formatPercent(result.tokens / summary.context)}`
+    ? `${formatInteger(result.toolCount)} 個工具・${formatInteger(result.tokens)} tokens・吃掉 ${formatPercent(result.tokens / summary.context)} 腦容量`
     : statusText(result);
   const reason = result.status === 'ok' ? '' : `<p class="reason">${escapeHtml(result.reason)}</p>`;
 
@@ -820,7 +820,7 @@ function formatPercent(value) {
 }
 
 function formatMoney(value) {
-  return Number(value).toFixed(4).replace(/\.?0+$/, '');
+  return Number(value).toFixed(2).replace(/\.?0+$/, '');
 }
 
 function escapeHtml(value) {

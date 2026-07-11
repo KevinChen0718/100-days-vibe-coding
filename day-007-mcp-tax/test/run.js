@@ -52,9 +52,9 @@ assert.match(result.stdout, /MCP Token Tax 稅單/);
 assert.match(result.stdout, /mock/);
 assert.match(result.stdout, new RegExp(`mock[^\\n]*\\|\\s*2\\s*\\|\\s*${expectedTokens}`));
 assert.match(result.stdout, /bad/);
-assert.match(result.stdout, /失敗/);
+assert.match(result.stdout, /連不上/);
 assert.match(result.stdout, /slow/);
-assert.match(result.stdout, /逾時/);
+assert.match(result.stdout, /沒回應/);
 assert.match(result.stdout, /slow mock stderr marker/);
 assert.match(result.stdout, /每 100 則訊息 ≈/);
 
@@ -63,9 +63,9 @@ const html = fs.readFileSync(htmlPath, 'utf8');
 assert.match(html, /MCP Token 稅單/);
 assert.match(html, /mock/);
 assert.match(html, new RegExp(`${expectedTokens}\\s*tokens`));
-assert.match(html, /context 稅率/);
-assert.match(html, /API 輸入計價/);
-assert.match(html, /訂閱制不直接按 token 計費，此為 API 等值換算/);
+assert.match(html, /腦容量稅率/);
+assert.match(html, /錢怎麼算的/);
+assert.match(html, /不會真的按 token 扣錢，這金額是換算成 API 的參考值/);
 assert.doesNotMatch(html, /https?:\/\//, 'HTML should not reference external resources');
 
 console.log('PASS mock server 工具數與 token 估算正確');
