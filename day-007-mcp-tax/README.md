@@ -1,5 +1,7 @@
 # Day 7 — MCP Token Tax
 
+> **這個作品已畢業成獨立 repo → [KevinChen0718/mcp-tax](https://github.com/KevinChen0718/mcp-tax)**（可 `npx mcp-tax` 一行安裝）。後續更新都在那邊，這裡保留 Day 7 當天的原始版本與開發復盤。
+
 **Quick Start (English):** Run `node mcp-tax.js` to scan your local MCP configs, connect to stdio MCP servers, estimate how many context tokens their tool schemas consume, print a terminal tax table, and write `tax-receipt.html`. No npm install, no network calls, Node built-ins only.
 
 把看不見的 MCP tool schema context 成本，做成一張可以截圖分享的「token 稅單」。
