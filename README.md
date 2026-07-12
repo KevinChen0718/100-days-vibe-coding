@@ -15,6 +15,7 @@
 | 005 | 霜峽行動 Operation Frostfjord | 致敬《Commandos: Behind Enemy Lines》第一關的即時戰術潛行：三人小隊（刀殺/手槍/開船）分散登陸挪威雪岸，奪艇渡海用油桶炸掉無線電中繼站。視野錐雙區（近區蹲了也沒用、遠區蹲低隱形）、敵兵三態 FSM、背後刀殺、搬屍體藏灌木、誘餌、快速存讀檔；A* 尋路、ASCII 地圖資料驅動、85 條 Node 回歸測試含腳本化通關驗證。機制重寫、素材全原創，零依賴。 | [day-005-frostfjord](day-005-frostfjord/) |
 | 006 | 票價軌跡 Fare Tracker | 國外機票價格追蹤看板：盯國際線票價、看價格軌跡、判斷「現在該買還是該等」。買點訊號＝現價百分位＋距出發天數；區域→國家→城市三層篩選、航空公司與來回/單程、目標價達標亮燈、手刻 SVG 圖表（含懸停十字線）、localStorage 持久化。資料層可替換且誠實標示——先做可重現模擬（標「模擬」），再接 **Travelpayouts 真實票價**（Node `scan.js` 抓最低價寫 `data.json`＋launchd 每 3 小時排程，抓到標「真實」、抓不到退「模擬」；真實價為該出發月最低）。 | [day-006-fare-tracker](day-006-fare-tracker/) |
 | 007 | MCP 稅單 mcp-tax | 「你裝的 MCP 每天在收你多少 token 稅？」零依賴 Node CLI：自動掃 Claude Code／Claude Desktop 的 MCP 設定、對每台 stdio server 真實 JSON-RPC 握手拿 tool schema、估算吃掉多少 context，輸出終端機表格＋一張可截圖的嘲諷「稅單」HTML（逐台列項、context 稅率、折合美元、頭號稅務大戶）。誠實標示估算與計價假設；`--timeout` 可調、失敗附 stderr 不靜默；4 條零依賴回歸測試（含 mock MCP server 與逾時情境）。 | [day-007-mcp-tax](day-007-mcp-tax/) |
+| 008 | 史料收件匣 inbox-distiller | 給「LLM Wiki」工作流補上自動餵料管線：把網頁剪藏、隨手丟的檔案放進 Obsidian vault 的收件匣資料夾，一個指令讓本機 AI CLI（claude / codex / 自訂）逐檔蒸餾成知識庫筆記＋更新目錄與日誌。路徑＋內容 hash 帳本去重、失敗重試、二進位檔自動跳過、同名筆記警告、dry-run；工具本身永不寫筆記／不動原始檔／不刪檔，零依賴 Node CLI，9 條回歸測試（假 agent，不燒額度）。全程用 Claude 出腦＋Codex 出手＋fresh verifier 抓漏的跨模型流水線打造。 | [day-008-inbox-distiller](day-008-inbox-distiller/) |
 
 ## 玩法慣例
 
