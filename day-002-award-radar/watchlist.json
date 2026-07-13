@@ -2,17 +2,17 @@
   "_說明": "你要追蹤的航線清單。radar.js 會讀這份去掃描。可手動編輯，或用網頁『＋新增追蹤航線』直接寫入。",
   "routes": [
     {
-      "id": "tpe-nrt-1203",
+      "id": "tpe-nrt-1207",
       "from": "TPE",
       "to": "NRT",
       "fromName": "桃園",
       "toName": "成田",
-      "tripType": "roundtrip",
-      "dateStart": "2026-11-28",
-      "dateEnd": "2026-12-06",
+      "tripType": "oneway",
+      "dateStart": "2026-12-05",
+      "dateEnd": "2026-12-09",
       "flexibility": "range",
       "cabins": {
-        "economy": { "track": true, "threshold": 18000 },
+        "economy": { "track": true, "threshold": 7500 },
         "business": { "track": false, "threshold": 30000 }
       }
     },
@@ -31,13 +31,13 @@
       }
     },
     {
-      "id": "nrt-tpe-1201",
+      "id": "nrt-tpe-1212",
       "from": "NRT",
       "to": "TPE",
       "fromName": "東京成田",
       "toName": "臺北桃園",
-      "dateStart": "2026-12-01",
-      "dateEnd": "2026-12-10",
+      "dateStart": "2026-12-10",
+      "dateEnd": "2026-12-14",
       "flexibility": "range",
       "cabins": {
         "economy": { "track": true, "threshold": 7500 },
