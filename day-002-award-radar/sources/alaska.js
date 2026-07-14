@@ -3,14 +3,14 @@
 // Day 3：接上「真實抓取」——直接 fetch Alaska（不開瀏覽器、不用登入），
 //        其餘程式（scan / 門檻比對 / 通知 / 儀表板）完全不用動。
 //
-// Day 3 偵察 → 兩條真實資料路徑：
+// Day 3 偵察 → 兩段式真實資料路徑：
 //   【主力】月曆端點 POST /search/api/shoulderDates（fareView:"as_awards"）
 //       一次回錨點 ±15 天（≈31 天）的「每日最低獎勵票里程」，純 JSON、不分艙/航司。
-//       → 一條航線一個請求就拿整段，避開下面那個限速地雷。這是預設走的路。
-//   【次要】逐日端點 GET /search/results/__data.json
+//       → Stage 1 只拿候選日，不直接通知。
+//   【確認】逐日端點 GET /search/results/__data.json
 //       含 carrier / cabin / seatsRemaining 等細節（SvelteKit devalue 格式），
 //       但有 token-bucket 限速（連發約 7~10 次就鎖成連續 406、冷卻數分鐘），
-//       一次只能查一天。留給未來 #2 過濾航司 / #5 剩位提醒按需取用，預設不走。
+//       一次只能查一天。Stage 2 只查少量候選日，確認追蹤航司真的達標才通知。
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -26,8 +26,8 @@ const RETRY_BACKOFF_MS = 2500;
 const RETRY_STATUS = new Set([403, 406, 408, 425, 429, 500, 502, 503, 504]);
 const CALENDAR_URL = 'https://www.alaskaair.com/search/api/shoulderDates';
 const CALENDAR_WINDOW = 31;     // shoulderDates 一次回錨點 ±15 天 ≈ 31 天
-// 次要（逐日詳細）路徑預設只追星宇（JX）；#2 會做成 per-route 可設定
-const TRACKED_CARRIERS = ['JX'];
+// 次要（逐日詳細）路徑預設只追星宇（JX）；watchlist route 可用 carriers 覆蓋。
+export const TRACKED_CARRIERS = ['JX'];
 // RADAR_SOURCE=mock 可強制走假資料（離線開發 / demo 不想連網時用）
 const LIVE = (process.env.RADAR_SOURCE ?? 'live') !== 'mock';
 
@@ -35,6 +35,12 @@ const LIVE = (process.env.RADAR_SOURCE ?? 'live') !== 'mock';
 export const SOURCE_MODE = LIVE ? 'live' : 'mock';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function localDateTime() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
 function dateRange(start, end) {
   const out = [];
@@ -58,7 +64,7 @@ function shoulderBody(route, anchorDate) {
     isAddingToAdultRes: false, sliceToSearch: 0, sliceSelections: [], selectedSegments: [],
     fareView: 'as_awards',                 // ← 里程模式（不是現金票）
     discount: {
-      code: '', status: 0, expirationDate: new Date().toISOString(), message: '', memo: '', type: 0,
+      code: '', status: 0, expirationDate: localDateTime(), message: '', memo: '', type: 0,
       searchContainsDiscountedFare: false, campaignName: '', campaignCode: '', distribution: 0,
       amount: 0, validationErrors: [], maxPassengers: 0, minPassengers: 0,
     },
@@ -163,6 +169,53 @@ function classifyCabin(cabins) {
   return null;
 }
 
+export function carriersForRoute(route) {
+  const carriers = Array.isArray(route.carriers) && route.carriers.length ? route.carriers : TRACKED_CARRIERS;
+  return carriers.map(c => String(c).trim().toUpperCase()).filter(Boolean);
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    if (value == null || value === '') continue;
+    return String(value);
+  }
+  return '';
+}
+
+function findByName(o, names, depth = 0) {
+  if (!o || typeof o !== 'object' || depth > 5) return '';
+  for (const name of names) {
+    if (o[name] != null && o[name] !== '') return o[name];
+  }
+  for (const k in o) {
+    const hit = findByName(o[k], names, depth + 1);
+    if (hit) return hit;
+  }
+  return '';
+}
+
+function normalizeTime(value) {
+  if (value == null || value === '') return '';
+  const text = String(value);
+  const time = text.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\b/);
+  if (time) return `${time[1].padStart(2, '0')}:${time[2]}`;
+  const ampm = text.match(/\b(\d{1,2}):(\d{2})\s*([AP]M)\b/i);
+  if (ampm) return `${ampm[1].padStart(2, '0')}:${ampm[2]} ${ampm[3].toUpperCase()}`;
+  return text;
+}
+
+function segmentTimes(segment) {
+  const depart = findByName(segment, [
+    'departureTime', 'departTime', 'departureDateTime', 'departDateTime',
+    'scheduledDepartureTime', 'scheduledDepartTime', 'originDateTime',
+  ]);
+  const arrive = findByName(segment, [
+    'arrivalTime', 'arriveTime', 'arrivalDateTime', 'arriveDateTime',
+    'scheduledArrivalTime', 'scheduledArriveTime', 'destinationDateTime',
+  ]);
+  return { departTime: normalizeTime(depart), arriveTime: normalizeTime(arrive) };
+}
+
 function extractFlights(text) {
   const dataArrays = [];
   for (const line of text.split('\n')) {
@@ -178,16 +231,26 @@ function extractFlights(text) {
     if (o.solutions && o.segments) {
       const seg0 = o.segments[0] || {};
       const carrier = seg0.displayCarrier || seg0.publishingCarrier || {};
+      const times = segmentTimes(seg0);
       for (const s of Object.values(o.solutions)) {
         if (!s || typeof s !== 'object' || s.atmosPoints == null) continue;
         const cabin = classifyCabin(s.cabins);
         if (!cabin) continue;
-        const key = `${carrier.carrierCode}-${carrier.flightNumber}-${cabin}-${s.atmosPoints}`;
+        const carrierCode = firstText(carrier.carrierCode, seg0.carrierCode, seg0.marketingCarrierCode);
+        const flightNumber = firstText(carrier.flightNumber, seg0.flightNumber, seg0.marketingFlightNumber);
+        const key = `${carrierCode}-${flightNumber}-${cabin}-${s.atmosPoints}`;
         if (seen.has(key)) continue;
         seen.add(key);
         flights.push({
-          carrier: carrier.carrierCode, airline: carrier.carrierFullName, flight: carrier.flightNumber,
-          cabin, miles: s.atmosPoints, cashUSD: s.grandTotal, seats: s.seatsRemaining,
+          carrier: carrierCode,
+          airline: firstText(carrier.carrierFullName, carrier.carrierName, seg0.carrierName),
+          flightNumber,
+          departTime: times.departTime,
+          arriveTime: times.arriveTime,
+          cabin,
+          miles: s.atmosPoints,
+          cashUSD: s.grandTotal,
+          seatsRemaining: s.seatsRemaining,
         });
       }
     }
@@ -197,8 +260,34 @@ function extractFlights(text) {
   return flights;
 }
 
+function mockFlightNumber(route, date, cabin, index = 0) {
+  const base = 700 + (seeded(route.id + date + cabin + index) % 80);
+  return String(base);
+}
+
+function mockSeats(route, date, cabin, index = 0) {
+  return 1 + (seeded(route.id + date + cabin + index + 'seats') % 5);
+}
+
+function mockDetailedFlights(route, date, carriers) {
+  const carrier = carriers[0] || TRACKED_CARRIERS[0];
+  return ['economy', 'business'].map((cabin, index) => ({
+    carrier,
+    airline: carrier === 'JX' ? 'STARLUX Airlines' : carrier,
+    flightNumber: mockFlightNumber(route, date, cabin, index),
+    departTime: index === 0 ? '08:30' : '14:10',
+    arriveTime: index === 0 ? '12:25' : '18:05',
+    cabin,
+    miles: mockMiles(route.id, cabin, date),
+    seatsRemaining: mockSeats(route, date, cabin, index),
+  }));
+}
+
 // 查單一出發日的詳細航班（含航司/艙等/剩位）。次要工具，注意有限速。
-export async function fetchDateDetailed(route, date) {
+export async function fetchDateDetailed(route, date, carriers = carriersForRoute(route), { forceMock = false } = {}) {
+  const wanted = carriers.map(c => String(c).toUpperCase());
+  if (!LIVE || forceMock) return mockDetailedFlights(route, date, wanted);
+
   const url = `https://www.alaskaair.com/search/results/__data.json`
     + `?O=${encodeURIComponent(route.from)}&D=${encodeURIComponent(route.to)}`
     + `&OD=${date}&A=1&C=0&L=0&RT=false&ShoppingMethod=onlineaward&locale=en-us`;
@@ -215,7 +304,7 @@ export async function fetchDateDetailed(route, date) {
       });
     } catch (e) { lastErr = e; clearTimeout(timer); continue; }
     clearTimeout(timer);
-    if (res.ok) return extractFlights(await res.text()).filter(f => TRACKED_CARRIERS.includes(f.carrier));
+    if (res.ok) return extractFlights(await res.text()).filter(f => wanted.includes(f.carrier));
     lastErr = new Error(`HTTP ${res.status}`);
     if (!RETRY_STATUS.has(res.status)) throw lastErr;
   }

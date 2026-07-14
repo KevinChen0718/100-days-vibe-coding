@@ -2,9 +2,19 @@
 const $ = id => document.getElementById(id);
 const fmtMD = d => d.slice(5).replace('-', '/');         // 2026-12-03 -> 12/03
 const cabinName = c => (c === 'economy' ? '經濟艙' : '商務艙');
+const asDays = c => Array.isArray(c?.days) ? c.days : [];
+const hitDates = c => Array.isArray(c?.hitDays)
+  ? c.hitDays
+  : asDays(c).filter(d => d.miles <= c.threshold).map(d => d.date);
+const confirmedDays = c => asDays(c).filter(d => d.confirmed === true && Array.isArray(d.flights) && d.flights.length);
+const pendingHitDays = c => {
+  const confirmed = new Set(confirmedDays(c).map(d => d.date));
+  return hitDates(c).filter(date => !confirmed.has(date));
+};
 
 // ===== 儀表板渲染 =====
 function barsHTML(days, threshold) {
+  if (!days.length) return `<div class="empty-bars">沒有可用日期</div>`;
   const ps = days.map(d => d.miles), mx = Math.max(...ps), mn = Math.min(...ps), rng = (mx - mn) || 1;
   const H = p => 18 + 82 * (p - mn) / rng;
   const thPos = Math.max(3, Math.min(99, H(threshold)));
@@ -18,34 +28,84 @@ function barsHTML(days, threshold) {
        + `<div class="axis-days">${axis}</div>`;
 }
 
+function parseScanTime(text) {
+  if (!text) return null;
+  const m = String(text).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]));
+}
+
+function confirmedAgo(text) {
+  const d = parseScanTime(text);
+  if (!d) return text || '剛剛確認';
+  const mins = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+  if (mins < 1) return '剛剛確認';
+  if (mins < 60) return `${mins} 分鐘前確認`;
+  return `${Math.floor(mins / 60)} 小時前確認`;
+}
+
+function seatText(seats) {
+  return Number.isFinite(Number(seats)) ? `剩 ${Number(seats)} 席` : '剩位未知';
+}
+
+function flightHTML(day) {
+  const rows = day.flights.map(f => {
+    const no = `${f.carrier || ''}${f.flightNumber || ''}`;
+    const time = f.departTime || f.arriveTime ? `${f.departTime || '—'} → ${f.arriveTime || '—'}` : '時間未提供';
+    return `<div class="flight-row">
+      <span class="flight-no">${no || '航班未提供'}</span>
+      <span>${time}</span>
+      <span>${Number(f.miles || 0).toLocaleString()} 點</span>
+      <span>${seatText(f.seatsRemaining)}</span>
+    </div>`;
+  }).join('');
+  return `<details class="flight-box" open>
+    <summary>${fmtMD(day.date)} 已確認 · ${confirmedAgo(day.confirmedAt)}</summary>
+    ${rows}
+  </details>`;
+}
+
 function cabinHTML(cabin, c) {
   if (!c) return '';
   const isMock = c.source === 'mock';
+  const days = asDays(c);
+  const hits = hitDates(c);
+  const confirmed = confirmedDays(c);
+  const pending = pendingHitDays(c);
+  const minText = Number.isFinite(c.min) ? c.min.toLocaleString() : '—';
   const pts = c.hit
-    ? `${c.min.toLocaleString()} <small>點 · 最低在 ${c.minDates.map(fmtMD).join('、')}</small>`
-    : `${c.min.toLocaleString()} <small>點 · 區間最低</small>`;
-  let tag;
+    ? `${minText} <small>點 · 最低在 ${(c.minDates || []).map(fmtMD).join('、') || '—'}</small>`
+    : `${minText} <small>點 · 區間最低</small>`;
+  let tag = '';
   if (isMock) {
-    tag = `<span class="tag2 sim">⚠️ 模擬資料，示範用、不發通知</span>`;
+    tag = `<span class="tag2 sim">模擬資料，示範用、不發通知</span>`;
+  } else if (confirmed.length) {
+    tag = `<span class="tag hot">已確認 ${confirmed.map(d => fmtMD(d.date)).join('、')} 有追蹤航班達標</span>` +
+      (cabin === 'economy' ? `<button class="buy" onclick="goAlaska()">前往 Alaska</button>` : '');
+  } else if (pending.length) {
+    tag = `<span class="tag2 pending">未確認（混航司最低價）：${pending.map(fmtMD).join('、')} 待逐日確認</span>`;
   } else {
-    tag = c.hit
-      ? `<span class="tag hot">🎯 ${c.hitDays.map(fmtMD).join('、')} 達標！</span>` +
-        (cabin === 'economy' ? `<button class="buy" onclick="goAlaska()">前往 Alaska</button>` : '')
-      : `<span class="tag2">整段都在門檻之上，差 ${(c.min - c.threshold).toLocaleString()} 點</span>`;
+    const diff = Number.isFinite(c.min) ? `，差 ${(c.min - c.threshold).toLocaleString()} 點` : '';
+    tag = `<span class="tag2">整段都在門檻之上${diff}</span>`;
   }
   const srcTag = isMock ? ' <span class="simtag">模擬</span>' : '';
-  return `<div class="cab ${!isMock && c.hit ? 'hit' : ''} ${isMock ? 'ismock' : ''}">
+  const flightBoxes = confirmed.map(flightHTML).join('');
+  const pendingList = pending.length ? `<div class="pending-days">${pending.map(d => `<span>${fmtMD(d)} 未確認</span>`).join('')}</div>` : '';
+  return `<div class="cab ${!isMock && confirmed.length ? 'hit' : ''} ${pending.length && !confirmed.length ? 'pending-cab' : ''} ${isMock ? 'ismock' : ''}">
     <div class="lbl"><span>${cabinName(cabin)}${srcTag}</span><span class="thresh" title="改門檻請編輯 watchlist.json">門檻 ≤ ${c.threshold.toLocaleString()}<span class="pen">✎</span></span></div>
     <div class="pts">${pts}</div>
-    ${barsHTML(c.days, c.threshold)}
+    ${barsHTML(days, c.threshold)}
+    ${flightBoxes}
+    ${pendingList}
     ${tag}
   </div>`;
 }
 
 function cardHTML(r) {
-  const anyHit = ['economy', 'business'].some(c => r.cabins[c]?.hit && r.cabins[c]?.source === 'real');
-  const span = (r.cabins.economy?.days || r.cabins.business?.days || []).length;
-  const cabs = ['economy', 'business'].map(c => cabinHTML(c, r.cabins[c])).join('');
+  const cabins = r.cabins || {};
+  const anyHit = ['economy', 'business'].some(c => cabins[c]?.source === 'real' && confirmedDays(cabins[c]).length);
+  const span = (cabins.economy?.days || cabins.business?.days || []).length;
+  const cabs = ['economy', 'business'].map(c => cabinHTML(c, cabins[c])).join('');
   return `<div class="card ${anyHit ? 'hit' : ''}">
     <button class="untrack" onclick="removeRoute('${r.routeId}')" title="停止追蹤這條航線">停止追蹤</button>
     <div class="route"><span class="air">${r.from}</span><span class="arrow">→</span><span class="air">${r.to}</span>
@@ -56,9 +116,10 @@ function cardHTML(r) {
 }
 
 function renderStatus(data) {
-  const total = data.results.length;
-  const hits = data.results.reduce((n, r) => n + ['economy', 'business'].filter(c => r.cabins[c]?.hit && r.cabins[c]?.source === 'real').length, 0);
-  const realCount = data.results.filter(r => ['economy', 'business'].some(c => r.cabins[c]?.source === 'real')).length;
+  const results = Array.isArray(data.results) ? data.results : [];
+  const total = results.length;
+  const hits = results.reduce((n, r) => n + ['economy', 'business'].filter(c => r.cabins?.[c]?.source === 'real' && confirmedDays(r.cabins[c]).length).length, 0);
+  const realCount = results.filter(r => ['economy', 'business'].some(c => r.cabins?.[c]?.source === 'real')).length;
   $('status').innerHTML =
     `<span>監控中 <b>${total}</b> 條航線</span>` +
     `<span>真實資料 <b>${realCount}</b> 條 · 其餘為模擬示範</span>` +
@@ -70,7 +131,8 @@ async function load() {
   try {
     const data = await (await fetch('data.json?t=' + Date.now())).json();
     renderStatus(data);
-    $('cards').innerHTML = data.results.map(cardHTML).join('') ||
+    const results = Array.isArray(data.results) ? data.results : [];
+    $('cards').innerHTML = results.map(cardHTML).join('') ||
       `<div class="card">追蹤清單是空的，點下方「＋新增追蹤航線」開始。</div>`;
   } catch (e) {
     $('status').innerHTML = '還沒有掃描資料';

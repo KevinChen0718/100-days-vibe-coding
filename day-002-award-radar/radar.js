@@ -9,8 +9,10 @@ console.log(`📡 里程票雷達掃描開始（資料源：${SOURCE_MODE}）\n`
 const r = await runScan({ log: console.log });
 console.log(`\n✓ 已更新 data.json（${r.data.results.length} 條航線）`);
 
-if (r.alertCount === 0) {
+if (r.alertCount === 0 && !r.mockAlertCount) {
   console.log('（沒有達標航線，不發通知）');
+} else if (r.mockAlertCount) {
+  console.log(`（模擬模式：有 ${r.mockAlertCount} 筆會通知的航班，已只印文案、不推播）`);
 } else if (!r.notifyReady) {
   console.log(`\n🔔 有 ${r.alertCount} 筆達標，但你還沒設定通知管道。複製 .env.example 成 .env 再填即可。`);
 }
