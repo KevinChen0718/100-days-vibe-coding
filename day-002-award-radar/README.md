@@ -26,7 +26,8 @@ npm run serve    # 開儀表板 http://localhost:4173
 - **Telegram**：找 `@BotFather` `/newbot` 拿 token；找 `@userinfobot` 拿你的 chat_id；先對新 bot 傳一句話
 
 ## 追蹤清單
-編輯 `watchlist.json`，或在網頁點「＋新增追蹤航線」產生設定再貼進去。每條航線可設：起迄機場、日期區間、各艙等的通知門檻。
+複製 `watchlist.example.json` 成 `watchlist.json` 再編輯，或在網頁點「＋新增追蹤航線」產生設定再貼進去。每條航線可設：起迄機場、日期區間、各艙等的通知門檻。
+> `watchlist.json` 與掃描產物 `data.json` 是你的個人行程資料，**已 gitignore、不會進 git**——想 fork 來公開展示也不會洩漏自己的出遊日期。
 
 ## 資料來源（這是分天攻的關鍵設計）
 - **Day 2**：`sources/alaska.js` 是 **mock 模擬資料**；可放 `overrides/<航線id>.json` 灌入真實點數。
@@ -61,8 +62,9 @@ launchctl bootout gui/$(id -u)/com.kevin.award-radar                            
 ## 檔案結構
 ```
 radar.js          大腦：讀清單→查→比對門檻→寫 data.json→達標通知
-watchlist.json    你要追的航線
-data.json         掃描結果（radar 產生，前端讀）
+watchlist.example.json  範例追蹤清單（複製成 watchlist.json 後編輯）
+watchlist.json    你要追的航線（個人行程資料，gitignore 不進 git）
+data.json         掃描結果（radar 產生，前端讀；同樣 gitignore）
 sources/alaska.js 資料來源 adapter（Day2 mock / Day3 真實）
 notify/           可插拔通知（discord.js / telegram.js / index.js）
 index.html ...    前端儀表板（讀 data.json 動態渲染）

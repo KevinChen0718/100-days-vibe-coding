@@ -2,4 +2,7 @@
 node_modules/
 overrides/*.local.json
 notify-state.json
+# 個人行程資料不進 git（範例見 watchlist.example.json）
+watchlist.json
+data.json
 

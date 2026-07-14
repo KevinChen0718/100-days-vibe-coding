@@ -1,0 +1,35 @@
+{
+  "_說明": "範例追蹤清單。複製成 watchlist.json 再改成你自己的航線（watchlist.json 是個人行程資料，已 gitignore 不進 git）。也可以用網頁「＋新增追蹤航線」直接寫入。",
+  "routes": [
+    {
+      "id": "tpe-nrt-example",
+      "from": "TPE",
+      "to": "NRT",
+      "fromName": "桃園",
+      "toName": "成田",
+      "tripType": "oneway",
+      "dateStart": "2027-03-01",
+      "dateEnd": "2027-03-07",
+      "flexibility": "range",
+      "cabins": {
+        "economy": { "track": true, "threshold": 7500 },
+        "business": { "track": false, "threshold": 15000 }
+      }
+    },
+    {
+      "id": "nrt-tpe-example",
+      "from": "NRT",
+      "to": "TPE",
+      "fromName": "成田",
+      "toName": "桃園",
+      "tripType": "oneway",
+      "dateStart": "2027-03-08",
+      "dateEnd": "2027-03-14",
+      "flexibility": "range",
+      "cabins": {
+        "economy": { "track": true, "threshold": 7500 },
+        "business": { "track": false, "threshold": 15000 }
+      }
+    }
+  ]
+}
