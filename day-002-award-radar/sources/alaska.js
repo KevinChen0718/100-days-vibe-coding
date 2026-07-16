@@ -196,27 +196,41 @@ function findByName(o, names, depth = 0) {
 
 function normalizeTime(value) {
   if (value == null || value === '') return '';
-  const text = String(value);
-  const time = text.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\b/);
-  if (time) return `${time[1].padStart(2, '0')}:${time[2]}`;
-  const ampm = text.match(/\b(\d{1,2}):(\d{2})\s*([AP]M)\b/i);
-  if (ampm) return `${ampm[1].padStart(2, '0')}:${ampm[2]} ${ampm[3].toUpperCase()}`;
-  return text;
+  const text = String(value).trim();
+  const iso = text.match(/^\d{4}-\d{2}-\d{2}[T ]([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/);
+  if (iso) return `${iso[1]}:${iso[2]}`;
+  const ampm = text.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?\s*([AP]M)$/i);
+  if (ampm) {
+    const hour12 = Number(ampm[1]);
+    if (hour12 < 1 || hour12 > 12) return '';
+    const hour24 = (hour12 % 12) + (ampm[3].toUpperCase() === 'PM' ? 12 : 0);
+    return `${String(hour24).padStart(2, '0')}:${ampm[2]}`;
+  }
+  const time = text.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  return time ? `${time[1].padStart(2, '0')}:${time[2]}` : '';
 }
 
-function segmentTimes(segment) {
-  const depart = findByName(segment, [
+function segmentTimes(segments) {
+  const firstSegment = segments[0] || {};
+  const lastSegment = segments.at(-1) || firstSegment;
+  const depart = findByName(firstSegment, [
     'departureTime', 'departTime', 'departureDateTime', 'departDateTime',
     'scheduledDepartureTime', 'scheduledDepartTime', 'originDateTime',
   ]);
-  const arrive = findByName(segment, [
+  const arrive = findByName(lastSegment, [
     'arrivalTime', 'arriveTime', 'arrivalDateTime', 'arriveDateTime',
     'scheduledArrivalTime', 'scheduledArriveTime', 'destinationDateTime',
   ]);
   return { departTime: normalizeTime(depart), arriveTime: normalizeTime(arrive) };
 }
 
-function extractFlights(text) {
+function parseSeatsRemaining(value) {
+  if (value == null || value === '') return null;
+  const seats = Number(value);
+  return Number.isInteger(seats) && seats >= 0 ? seats : null;
+}
+
+function parseDetailedFlights(text) {
   const dataArrays = [];
   for (const line of text.split('\n')) {
     if (!line.trim()) continue;
@@ -231,7 +245,7 @@ function extractFlights(text) {
     if (o.solutions && o.segments) {
       const seg0 = o.segments[0] || {};
       const carrier = seg0.displayCarrier || seg0.publishingCarrier || {};
-      const times = segmentTimes(seg0);
+      const times = segmentTimes(o.segments);
       for (const s of Object.values(o.solutions)) {
         if (!s || typeof s !== 'object' || s.atmosPoints == null) continue;
         const cabin = classifyCabin(s.cabins);
@@ -250,7 +264,8 @@ function extractFlights(text) {
           cabin,
           miles: s.atmosPoints,
           cashUSD: s.grandTotal,
-          seatsRemaining: s.seatsRemaining,
+          // 這是該 itinerary / fare solution 的可售位數；缺欄位時不可猜測。
+          seatsRemaining: parseSeatsRemaining(s.seatsRemaining),
         });
       }
     }
@@ -304,7 +319,7 @@ export async function fetchDateDetailed(route, date, carriers = carriersForRoute
       });
     } catch (e) { lastErr = e; clearTimeout(timer); continue; }
     clearTimeout(timer);
-    if (res.ok) return extractFlights(await res.text()).filter(f => wanted.includes(f.carrier));
+    if (res.ok) return parseDetailedFlights(await res.text()).filter(f => wanted.includes(f.carrier));
     lastErr = new Error(`HTTP ${res.status}`);
     if (!RETRY_STATUS.has(res.status)) throw lastErr;
   }

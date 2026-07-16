@@ -45,7 +45,9 @@ function confirmedAgo(text) {
 }
 
 function seatText(seats) {
-  return Number.isFinite(Number(seats)) ? `剩 ${Number(seats)} 席` : '剩位未知';
+  // null / undefined = payload 沒給剩位，不能當 0 席顯示
+  if (seats == null) return '剩位不明';
+  return Number.isFinite(Number(seats)) ? `剩 ${Number(seats)} 席` : '剩位不明';
 }
 
 function flightHTML(day) {

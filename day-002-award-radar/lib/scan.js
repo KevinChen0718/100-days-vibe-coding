@@ -233,7 +233,7 @@ function mergeFlightState(state, alert, flights) {
 }
 
 function formatSeats(seats) {
-  return Number.isFinite(seats) ? `剩 ${seats} 席` : '剩位未知';
+  return Number.isFinite(seats) ? `剩 ${seats} 席` : '剩位不明';
 }
 
 function formatFlightLine(f) {
