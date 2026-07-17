@@ -513,159 +513,242 @@ var Renderer = (function () {
       ctx.fillRect(0, 0, cw, view.h);
     }
 
-    // 隊員頭像
+    // 隊員列
     state.units.forEach(function (u, i) {
-      var x = 12 + i * 56, y = 12;
-      ctx.fillStyle = state.selected === u.id ? 'rgba(255,255,255,0.18)' : 'rgba(8,12,22,0.7)';
-      ctx.fillRect(x, y, 48, 56);
-      ctx.strokeStyle = state.selected === u.id ? '#ffd34d' : 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = state.selected === u.id ? 2 : 1;
-      ctx.strokeRect(x, y, 48, 56);
+      var x = 14 + i * 68, y = 14, selected = state.selected === u.id;
+      ctx.fillStyle = selected ? 'rgba(31,45,68,0.96)' : 'rgba(8,16,31,0.86)';
+      ctx.fillRect(x, y, 60, 66);
+      ctx.strokeStyle = selected ? '#e5bd5e' : 'rgba(224,232,240,0.24)';
+      ctx.lineWidth = selected ? 3 : 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, 59, 65);
+      ctx.fillStyle = selected ? '#e5bd5e' : 'rgba(224,232,240,0.12)';
+      ctx.fillRect(x, y, 60, 4);
+
       var s = UNIT_STYLE[u.kind];
       ctx.fillStyle = '#d9b38c';
-      ctx.beginPath(); ctx.arc(x + 24, y + 22, 9, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 30, y + 25, 10, 0, 7); ctx.fill();
       ctx.fillStyle = s.cap;
-      ctx.beginPath(); ctx.arc(x + 24, y + 19, 9, Math.PI, 2 * Math.PI); ctx.fill();
-      ctx.fillRect(x + 15, y + 19, 18, 4);
-      ctx.fillStyle = '#fff';
-      ctx.font = '11px "Noto Sans TC",sans-serif';
+      ctx.beginPath(); ctx.arc(x + 30, y + 22, 10, Math.PI, 2 * Math.PI); ctx.fill();
+      ctx.fillRect(x + 20, y + 22, 20, 4);
+      ctx.fillStyle = '#f1eadc';
+      ctx.font = '700 11px "Noto Sans TC",sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(u.name, x + 24, y + 44);
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '9px monospace';
-      ctx.fillText(String(i + 1), x + 6, y + 10);
-      // HP
+      ctx.fillText(u.name, x + 30, y + 47);
+      ctx.fillStyle = selected ? '#101828' : 'rgba(241,234,220,0.62)';
+      ctx.fillRect(x + 6, y + 7, 13, 13);
+      ctx.fillStyle = selected ? '#e5bd5e' : '#f1eadc';
+      ctx.font = '800 9px monospace';
+      ctx.fillText(String(i + 1), x + 12.5, y + 17);
+
       for (var h = 0; h < 3; h++) {
-        ctx.fillStyle = h < u.hp ? '#e05548' : 'rgba(255,255,255,0.15)';
-        ctx.fillRect(x + 8 + h * 12, y + 49, 9, 3);
+        ctx.fillStyle = h < u.hp ? '#d7604d' : 'rgba(255,255,255,0.14)';
+        ctx.fillRect(x + 8 + h * 15, y + 56, 12, 4);
       }
       if (!u.alive) {
-        ctx.fillStyle = 'rgba(180,30,30,0.55)';
-        ctx.fillRect(x, y, 48, 56);
+        ctx.fillStyle = 'rgba(108,20,24,0.7)';
+        ctx.fillRect(x, y, 60, 66);
       }
       if (u.inBoat) {
         ctx.fillStyle = '#9fc3e0';
-        ctx.font = '9px "Noto Sans TC",sans-serif';
-        ctx.fillText('船上', x + 24, y + 8);
+        ctx.font = '800 8px "Noto Sans TC",sans-serif';
+        ctx.fillText('船上', x + 44, y + 16);
       }
       if (u.crouch) {
-        ctx.fillStyle = '#9fe09f';
-        ctx.font = '9px "Noto Sans TC",sans-serif';
-        ctx.fillText('蹲', x + 42, y + 10);
+        ctx.fillStyle = '#8bc5a4';
+        ctx.font = '800 8px "Noto Sans TC",sans-serif';
+        ctx.fillText('蹲低', x + 43, y + 16);
       }
     });
+
     // 狐的子彈
     var fox = null;
     state.units.forEach(function (u) { if (u.kind === 'fox') fox = u; });
     if (fox && state.selected === 'fox') {
-      ctx.fillStyle = 'rgba(8,12,22,0.7)';
-      ctx.fillRect(12, 74, 104, 20);
-      ctx.fillStyle = '#ffd34d';
-      ctx.font = '11px "Noto Sans TC",sans-serif';
+      ctx.fillStyle = 'rgba(8,16,31,0.88)';
+      ctx.fillRect(82, 84, 124, 24);
+      ctx.fillStyle = '#e5bd5e';
+      ctx.font = '700 11px "Noto Sans TC",sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('手槍子彈 × ' + fox.ammo, 18, 88);
+      ctx.fillText('手槍彈藥  ' + fox.ammo + ' / 6', 92, 100);
     }
 
     // 任務目標
     var objs = state.level.objectives;
     var flagMap = { boat: state.flags.boatBoarded, island: state.flags.landedIsland, station: state.flags.stationDown, extract: state.flags.extracted };
-    var ox = view.w - 196, oy = 12;
-    ctx.fillStyle = 'rgba(8,12,22,0.7)';
-    ctx.fillRect(ox, oy, 184, 18 + objs.length * 18);
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.strokeRect(ox, oy, 184, 18 + objs.length * 18);
-    ctx.fillStyle = '#ffd34d';
-    ctx.font = 'bold 11px "Noto Sans TC",sans-serif';
+    var ox = view.w - 236, oy = 14, ow = 222;
+    ctx.fillStyle = 'rgba(8,16,31,0.9)';
+    ctx.fillRect(ox, oy, ow, 124);
+    ctx.strokeStyle = 'rgba(224,232,240,0.25)';
+    ctx.strokeRect(ox + 0.5, oy + 0.5, ow - 1, 123);
+    ctx.fillStyle = '#e5bd5e';
+    ctx.fillRect(ox, oy, 4, 124);
+    ctx.font = '800 9px "Noto Sans TC",sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('任務目標', ox + 8, oy + 14);
+    ctx.fillText('OPERATION STATUS', ox + 16, oy + 19);
+    ctx.fillStyle = '#f1eadc';
+    ctx.font = '800 13px "Noto Sans TC",sans-serif';
+    ctx.fillText('任務目標', ox + 16, oy + 39);
     objs.forEach(function (o, i) {
       var done = flagMap[o.id];
-      ctx.fillStyle = done ? '#7fd87f' : 'rgba(255,255,255,0.75)';
-      ctx.font = '11px "Noto Sans TC",sans-serif';
-      ctx.fillText((done ? '✓ ' : '□ ') + o.text, ox + 8, oy + 32 + i * 18);
+      ctx.fillStyle = done ? '#8bc5a4' : 'rgba(241,234,220,0.75)';
+      ctx.font = '700 10px "Noto Sans TC",sans-serif';
+      ctx.fillText(done ? '完成' : '待辦', ox + 16, oy + 59 + i * 16);
+      ctx.fillStyle = done ? 'rgba(139,197,164,0.9)' : 'rgba(241,234,220,0.78)';
+      ctx.font = '10px "Noto Sans TC",sans-serif';
+      ctx.fillText(o.text, ox + 54, oy + 59 + i * 16);
     });
 
     // 引信倒數（大字）
     state.barrels.forEach(function (b) {
       if (b.fuse > 0) {
-        ctx.fillStyle = 'rgba(255,80,40,' + (0.7 + 0.3 * Math.sin(state.t * 10)).toFixed(3) + ')';
-        ctx.font = 'bold 26px monospace';
+        ctx.fillStyle = 'rgba(215,73,55,' + (0.78 + 0.22 * Math.sin(state.t * 10)).toFixed(3) + ')';
+        ctx.fillRect(view.w / 2 - 128, 18, 256, 42);
+        ctx.fillStyle = '#fff1dd';
+        ctx.font = '800 18px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('炸藥引爆 ' + b.fuse.toFixed(1) + 's', view.w / 2, 40);
+        ctx.fillText('引爆倒數  ' + b.fuse.toFixed(1) + ' s', view.w / 2, 46);
       }
     });
 
     // 底部提示列
-    ctx.fillStyle = 'rgba(8,12,22,0.78)';
-    ctx.fillRect(0, view.h - 46, view.w, 46);
-    ctx.fillStyle = '#cfd8e3';
-    ctx.font = '12px "Noto Sans TC",sans-serif';
+    ctx.fillStyle = 'rgba(7,14,28,0.92)';
+    ctx.fillRect(0, view.h - 58, view.w, 58);
+    ctx.fillStyle = '#f1eadc';
+    ctx.font = '700 12px "Noto Sans TC",sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(state.hint || '', 14, view.h - 28);
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '10px "Noto Sans TC",sans-serif';
-    ctx.fillText('左鍵移動/攻擊　1-3 換人　C 蹲低　E 搬運　F 互動　Q 誘餌　V 視野　K/L 存/讀　R 重來　M 靜音', 14, view.h - 11);
+    ctx.fillText(state.hint || '選擇隊員，點擊地面下達移動命令。', 16, view.h - 35);
+    ctx.fillStyle = 'rgba(241,234,220,0.55)';
+    ctx.font = '9px "Noto Sans TC",sans-serif';
+    ctx.fillText('滑鼠  移動 / 攻擊　　1–3  換人　　C  蹲低　　E  搬運　　F  互動　　Q  誘餌', 16, view.h - 15);
+    ctx.textAlign = 'right';
+    ctx.fillText('V  視野　　K / L  存讀　　R  重來　　M  靜音', view.w - 16, view.h - 15);
     if (view.saveFlash > 0) {
-      ctx.fillStyle = 'rgba(127,216,127,' + Math.min(1, view.saveFlash).toFixed(3) + ')';
-      ctx.font = '12px "Noto Sans TC",sans-serif';
+      ctx.fillStyle = 'rgba(139,197,164,' + Math.min(1, view.saveFlash).toFixed(3) + ')';
+      ctx.font = '700 12px "Noto Sans TC",sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(view.saveFlashText, view.w - 14, view.h - 28);
+      ctx.fillText(view.saveFlashText, view.w - 16, view.h - 35);
     }
   }
 
   function panel(ctx, view, w, h) {
     var x = (view.w - w) / 2, y = (view.h - h) / 2;
-    ctx.fillStyle = 'rgba(6,10,20,0.92)';
+    ctx.fillStyle = 'rgba(5,11,23,0.88)';
     ctx.fillRect(0, 0, view.w, view.h);
-    ctx.fillStyle = '#0d1626';
+    ctx.fillStyle = '#0b1729';
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = '#ffd34d';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(224,232,240,0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    ctx.fillStyle = '#e5bd5e';
+    ctx.fillRect(x, y, 5, h);
     return { x: x, y: y };
   }
 
   function drawBriefing(ctx, state, view) {
     var br = state.level.briefing;
-    var p = panel(ctx, view, 560, 460);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffd34d';
-    ctx.font = 'bold 24px "Noto Sans TC",sans-serif';
-    ctx.fillText(br.title, view.w / 2, p.y + 52);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    var p = panel(ctx, view, 760, 500);
+    var left = p.x + 38, top = p.y + 34;
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#e5bd5e';
+    ctx.font = '800 10px "Noto Sans TC",sans-serif';
+    ctx.fillText('CLASSIFIED · FIELD BRIEFING 01', left, top);
+    ctx.fillStyle = '#f1eadc';
+    ctx.font = '900 30px "Noto Sans TC",sans-serif';
+    ctx.fillText('霜峽行動', left, top + 42);
+    ctx.fillStyle = 'rgba(241,234,220,0.58)';
+    ctx.font = '800 12px "Noto Sans TC",sans-serif';
+    ctx.fillText('OPERATION FROSTFJORD', left + 168, top + 40);
+    ctx.fillStyle = '#e5bd5e';
+    ctx.fillRect(left, top + 59, 452, 2);
+    ctx.fillStyle = 'rgba(241,234,220,0.56)';
+    ctx.font = '11px "Noto Sans TC",sans-serif';
+    ctx.fillText(br.date + '　·　挪威海岸', left, top + 82);
+
+    ctx.fillStyle = '#f1eadc';
+    ctx.font = '700 14px "Noto Sans TC",sans-serif';
+    ctx.fillText('德軍在北島架設無線電中繼站，增援部隊隨時可能抵達。', left, top + 118);
+    ctx.fillStyle = 'rgba(241,234,220,0.72)';
     ctx.font = '13px "Noto Sans TC",sans-serif';
-    ctx.fillText(br.date, view.w / 2, p.y + 78);
-    ctx.fillStyle = '#cfd8e3';
-    ctx.font = '14px "Noto Sans TC",sans-serif';
-    br.text.forEach(function (line, i) {
-      ctx.fillText(line, view.w / 2, p.y + 116 + i * 24);
+    ctx.fillText('三名隊員必須會合、奪艇渡海、炸毀中繼站，並全員撤離。', left, top + 143);
+
+    ctx.fillStyle = 'rgba(229,189,94,0.12)';
+    ctx.fillRect(left, top + 170, 684, 58);
+    ctx.fillStyle = '#e5bd5e';
+    ctx.font = '800 9px "Noto Sans TC",sans-serif';
+    ctx.fillText('MISSION ROUTE', left + 16, top + 191);
+    ctx.fillStyle = '#f1eadc';
+    ctx.font = '700 13px "Noto Sans TC",sans-serif';
+    ctx.fillText('會合　→　奪取小艇　→　渡海　→　炸毀中繼站　→　返回南岸', left + 16, top + 215);
+
+    ctx.fillStyle = '#f1eadc';
+    ctx.font = '800 12px "Noto Sans TC",sans-serif';
+    ctx.fillText('行動小組', left, top + 260);
+    var roster = [
+      ['1', '狼', '刀殺 · 搬運 · 誘餌'],
+      ['2', '狐', '手槍 · 遠距射擊'],
+      ['3', '海豹', '駕駛小艇'],
+    ];
+    roster.forEach(function (r, i) {
+      var rx = left + i * 226, ry = top + 278;
+      ctx.fillStyle = 'rgba(241,234,220,0.055)';
+      ctx.fillRect(rx, ry, 210, 70);
+      ctx.strokeStyle = 'rgba(224,232,240,0.18)';
+      ctx.strokeRect(rx + 0.5, ry + 0.5, 209, 69);
+      ctx.fillStyle = '#e5bd5e';
+      ctx.font = '900 17px monospace';
+      ctx.fillText(r[0], rx + 14, ry + 28);
+      ctx.fillStyle = '#f1eadc';
+      ctx.font = '800 14px "Noto Sans TC",sans-serif';
+      ctx.fillText(r[1], rx + 44, ry + 27);
+      ctx.fillStyle = 'rgba(241,234,220,0.55)';
+      ctx.font = '10px "Noto Sans TC",sans-serif';
+      ctx.fillText(r[2], rx + 44, ry + 48);
     });
-    ctx.fillStyle = '#7fd87f';
-    ctx.font = 'bold 15px "Noto Sans TC",sans-serif';
-    ctx.fillText('按 Enter 或點擊開始任務', view.w / 2, p.y + 420);
+
+    ctx.fillStyle = 'rgba(139,197,164,0.12)';
+    ctx.fillRect(left, top + 376, 684, 52);
+    ctx.fillStyle = '#8bc5a4';
+    ctx.font = '800 13px "Noto Sans TC",sans-serif';
+    ctx.fillText('ENTER  或點擊畫面開始任務', left + 20, top + 408);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(241,234,220,0.52)';
+    ctx.font = '10px "Noto Sans TC",sans-serif';
+    ctx.fillText('近距離視野無法躲藏 · 遠距離蹲低可保持隱蔽', left + 664, top + 408);
   }
 
   function drawOver(ctx, state, view) {
     var win = state.result === 'win';
-    var p = panel(ctx, view, 480, 260);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = win ? '#7fd87f' : '#e05548';
-    ctx.font = 'bold 30px "Noto Sans TC",sans-serif';
-    ctx.fillText(win ? '任務完成' : '任務失敗', view.w / 2, p.y + 64);
-    ctx.fillStyle = '#cfd8e3';
+    var p = panel(ctx, view, 520, 286);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = win ? '#8bc5a4' : '#d7604d';
+    ctx.font = '800 10px "Noto Sans TC",sans-serif';
+    ctx.fillText(win ? 'OPERATION COMPLETE' : 'OPERATION FAILED', p.x + 34, p.y + 38);
+    ctx.fillStyle = '#f1eadc';
+    ctx.font = '900 34px "Noto Sans TC",sans-serif';
+    ctx.fillText(win ? '任務完成' : '任務失敗', p.x + 34, p.y + 82);
+    ctx.fillStyle = 'rgba(241,234,220,0.7)';
     ctx.font = '14px "Noto Sans TC",sans-serif';
     if (win) {
       var kills = state.guards.filter(function (g) { return !g.alive; }).length;
       var mins = Math.floor(state.t / 60), secs = Math.floor(state.t % 60);
-      ctx.fillText('中繼站已成廢鐵，德軍通訊中斷數小時。', view.w / 2, p.y + 108);
-      ctx.fillText('耗時 ' + mins + ' 分 ' + secs + ' 秒　擊殺 ' + kills + ' 名哨兵', view.w / 2, p.y + 136);
+      ctx.fillText('中繼站已成廢鐵，德軍通訊中斷數小時。', p.x + 34, p.y + 122);
+      ctx.fillStyle = 'rgba(229,189,94,0.12)';
+      ctx.fillRect(p.x + 34, p.y + 146, 452, 48);
+      ctx.fillStyle = '#e5bd5e';
+      ctx.font = '800 13px "Noto Sans TC",sans-serif';
+      ctx.fillText('耗時 ' + mins + ' 分 ' + secs + ' 秒　　擊殺 ' + kills + ' 名哨兵', p.x + 50, p.y + 176);
     } else {
-      ctx.fillText(state.failReason || '', view.w / 2, p.y + 108);
-      ctx.fillText('提示：K 隨時存檔，L 讀檔重來', view.w / 2, p.y + 136);
+      ctx.fillText(state.failReason || '', p.x + 34, p.y + 122);
+      ctx.fillStyle = 'rgba(215,96,77,0.12)';
+      ctx.fillRect(p.x + 34, p.y + 146, 452, 48);
+      ctx.fillStyle = '#e5bd5e';
+      ctx.font = '700 13px "Noto Sans TC",sans-serif';
+      ctx.fillText('提示：K 隨時存檔，L 讀檔重來', p.x + 50, p.y + 176);
     }
-    ctx.fillStyle = '#7fd87f';
-    ctx.font = 'bold 14px "Noto Sans TC",sans-serif';
-    ctx.fillText(win ? '按 Enter 再玩一次' : '按 Enter 重新開始' + (view.hasSave ? '　按 L 讀取快速存檔' : ''), view.w / 2, p.y + 210);
+    ctx.fillStyle = win ? '#8bc5a4' : '#f1eadc';
+    ctx.font = '800 13px "Noto Sans TC",sans-serif';
+    ctx.fillText(win ? 'ENTER  再玩一次' : 'ENTER  重新開始' + (view.hasSave ? '　　L  讀取快速存檔' : ''), p.x + 34, p.y + 240);
   }
 
   return {

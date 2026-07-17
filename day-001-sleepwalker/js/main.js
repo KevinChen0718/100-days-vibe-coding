@@ -203,8 +203,8 @@
   function updateControls() {
     var ready = game && game.state === 'ready';
     $('btnStart').disabled = !ready;
-    $('btnStart').textContent = ready ? '放他走 ▶' : '走路中…';
-    $('btnSound').textContent = soundOn ? '♪ 開' : '♪ 關';
+    $('btnStart').innerHTML = ready ? '<span>放他走</span><kbd>Space</kbd>' : '<span>走路中</span>';
+    $('btnSound').innerHTML = soundOn ? '<span>音樂 開</span>' : '<span>音樂 關</span>';
   }
 
   function buildLevelSelect() {
@@ -214,11 +214,12 @@
     LEVELS.forEach(function (lv, i) {
       var b = document.createElement('button');
       b.className = 'lvbtn' + (i > unlocked ? ' locked' : '');
-      b.innerHTML = '<span class="lvnum">' + lv.id + '</span><span class="lvtag">' + lv.name + '</span>';
+      b.innerHTML = '<span class="lvnum">L' + lv.id + '</span><span class="lvtag">' + lv.name + '</span>';
       if (i <= unlocked) {
         b.addEventListener('click', function () { sndClick(); hideOverlay('levelSelect'); loadLevel(i); });
       } else {
-        b.innerHTML = '<span class="lvnum">🔒</span><span class="lvtag">' + lv.name + '</span>';
+        b.innerHTML = '<span class="lvnum locked-label">LOCKED</span><span class="lvtag">' + lv.name + '</span>';
+        b.disabled = true;
       }
       grid.appendChild(b);
     });
@@ -356,7 +357,7 @@
     $('btnHint').addEventListener('click', function () { sndClick(); showHint = !showHint; });
     $('btnSpeed').addEventListener('click', function () {
       speedMult = speedMult >= 3 ? 1 : speedMult + 1;
-      sndClick(); $('btnSpeed').textContent = speedMult + '×';
+      sndClick(); $('btnSpeed').innerHTML = '<span>速度 ' + speedMult + '×</span>';
     });
     $('btnMenu').addEventListener('click', function () { sndClick(); buildLevelSelect(); showOverlay('levelSelect'); });
     $('btnSound').addEventListener('click', function () {

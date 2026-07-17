@@ -174,12 +174,19 @@ function loop(now) {
   else if (screen === 'fight' && eng) {
     drawFight(g, eng, gframe);
     if (paused) {
-      g.fillStyle = 'rgba(10,6,14,.55)'; g.fillRect(0, 0, W, H);
-      g.textAlign = 'center'; g.fillStyle = '#fff';
-      g.font = 'bold 40px system-ui, "PingFang TC", sans-serif';
-      g.fillText('暫停', W / 2, H / 2);
-      g.font = '17px system-ui, "PingFang TC", sans-serif';
-      g.fillText('P — 繼續    Esc — 回標題', W / 2, H / 2 + 44);
+      g.fillStyle = 'rgba(7,11,26,.72)'; g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(9,14,30,.95)'; rr(g, W / 2 - 180, H / 2 - 72, 360, 144, 9); g.fill();
+      g.strokeStyle = 'rgba(244,207,118,.42)'; rr(g, W / 2 - 179.5, H / 2 - 71.5, 359, 143, 9); g.stroke();
+      g.textAlign = 'center';
+      g.fillStyle = '#f4cf76';
+      g.font = '800 10px system-ui, "PingFang TC", sans-serif';
+      g.fillText('MATCH PAUSED', W / 2, H / 2 - 34);
+      g.fillStyle = '#f4ead6';
+      g.font = '900 34px system-ui, "PingFang TC", sans-serif';
+      g.fillText('戰鬥暫停', W / 2, H / 2 + 6);
+      g.fillStyle = 'rgba(244,234,214,.66)';
+      g.font = '14px system-ui, "PingFang TC", sans-serif';
+      g.fillText('P  繼續戰鬥　·　Esc  回到標題', W / 2, H / 2 + 43);
     }
   }
   requestAnimationFrame(loop);

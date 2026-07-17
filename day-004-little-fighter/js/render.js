@@ -475,45 +475,73 @@ function drawHUD(g, eng) {
   for (const f of eng.fighters) {
     const left = f.team === 0;
     const n = slot[f.team]++;
-    const bw = 240;
-    const bx = left ? 24 : W - 24 - bw - 64;
-    const by = 12 + n * 64;
-    g.fillStyle = 'rgba(20,16,24,.72)';
-    rr(g, bx - 6, by, bw + 76, 58, 8); g.fill();
-    const px = left ? bx + 22 : bx + bw + 48;
-    g.save(); g.beginPath(); g.arc(px, by + 30, 19, 0, 7); g.clip();
-    g.fillStyle = '#5a4a66'; g.fillRect(px - 20, by + 10, 40, 40);
-    g.fillStyle = f.c.skin; g.beginPath(); g.arc(px, by + 34, 13, 0, 7); g.fill();
-    g.fillStyle = f.c.hair; g.beginPath(); g.arc(px, by + 28, 13, Math.PI * 0.9, Math.PI * 2.1); g.fill();
+    const cardW = 308;
+    const cardH = 54;
+    const bx = left ? 16 : W - 16 - cardW;
+    const by = 14 + n * 60;
+    const accent = left ? '#e8684a' : '#4b8fd8';
+
+    g.fillStyle = 'rgba(9,14,30,.88)';
+    rr(g, bx, by, cardW, cardH, 7); g.fill();
+    g.strokeStyle = 'rgba(244,234,214,.18)';
+    g.lineWidth = 1;
+    rr(g, bx + .5, by + .5, cardW - 1, cardH - 1, 7); g.stroke();
+    g.fillStyle = accent;
+    g.fillRect(left ? bx : bx + cardW - 4, by + 7, 4, cardH - 14);
+
+    const px = left ? bx + 28 : bx + cardW - 28;
+    g.save(); g.beginPath(); g.arc(px, by + 27, 18, 0, 7); g.clip();
+    g.fillStyle = '#25304c'; g.fillRect(px - 20, by + 7, 40, 40);
+    g.fillStyle = f.c.skin; g.beginPath(); g.arc(px, by + 31, 13, 0, 7); g.fill();
+    g.fillStyle = f.c.hair; g.beginPath(); g.arc(px, by + 25, 13, Math.PI * 0.9, Math.PI * 2.1); g.fill();
     g.fillStyle = '#3a2a20';
-    g.beginPath(); g.arc(px - 4.5, by + 35, 1.5, 0, 7); g.fill();
-    g.beginPath(); g.arc(px + 4.5, by + 35, 1.5, 0, 7); g.fill();
+    g.beginPath(); g.arc(px - 4.5, by + 32, 1.4, 0, 7); g.fill();
+    g.beginPath(); g.arc(px + 4.5, by + 32, 1.4, 0, 7); g.fill();
     g.restore();
-    g.strokeStyle = f.isAI ? '#9a8aa8' : (f.pid === 0 ? '#e85d4a' : '#4a90e8');
-    g.lineWidth = 2.5;
-    g.beginPath(); g.arc(px, by + 30, 19, 0, 7); g.stroke();
+
+    g.strokeStyle = f.isAI ? '#8490a8' : accent;
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(px, by + 27, 18, 0, 7); g.stroke();
+
     const tag = f.isAI ? 'CPU' : `P${f.pid + 1}`;
-    g.fillStyle = '#fff'; g.font = 'bold 13px system-ui, "PingFang TC", sans-serif';
+    const tx = left ? bx + 54 : bx + cardW - 54;
+    g.fillStyle = '#f4ead6';
+    g.font = '700 12px system-ui, "PingFang TC", sans-serif';
     g.textAlign = left ? 'left' : 'right';
-    g.fillText(`${f.c.name} · ${tag}`, left ? bx + 48 : bx + bw + 22, by + 16);
-    const hx = left ? bx + 48 : bx + 16;
-    g.fillStyle = '#241a1a'; rr(g, hx, by + 22, bw - 32, 12, 4); g.fill();
+    g.fillText(`${f.c.name}  ·  ${tag}`, tx, by + 15);
+
+    const barW = 238;
+    const hx = left ? bx + 54 : bx + cardW - 54 - barW;
+    g.fillStyle = '#291b20'; rr(g, hx, by + 22, barW, 11, 3); g.fill();
     const rec = Math.max(0, f.hpRec / HP_MAX), hp = Math.max(0, f.hp / HP_MAX);
-    const w2 = bw - 32;
+    const w2 = barW;
     g.fillStyle = '#7a2a24';
-    if (rec > 0) { rr(g, left ? hx : hx + w2 * (1 - rec), by + 22, w2 * rec, 12, 4); g.fill(); }
-    g.fillStyle = hp > 0.3 ? '#e8493c' : '#ff2d18';
-    if (hp > 0) { rr(g, left ? hx : hx + w2 * (1 - hp), by + 22, w2 * hp, 12, 4); g.fill(); }
-    g.fillStyle = '#161c28'; rr(g, hx, by + 39, w2, 8, 3); g.fill();
+    if (rec > 0) { rr(g, left ? hx : hx + w2 * (1 - rec), by + 22, w2 * rec, 11, 3); g.fill(); }
+    g.fillStyle = hp > 0.3 ? '#e8684a' : '#ff4b36';
+    if (hp > 0) { rr(g, left ? hx : hx + w2 * (1 - hp), by + 22, w2 * hp, 11, 3); g.fill(); }
+    g.fillStyle = '#172138'; rr(g, hx, by + 38, w2, 7, 2); g.fill();
     const mp = f.mp / MP_MAX;
-    g.fillStyle = '#3f8fe8';
-    if (mp > 0) { rr(g, left ? hx : hx + w2 * (1 - mp), by + 39, w2 * mp, 8, 3); g.fill(); }
+    g.fillStyle = '#4b8fd8';
+    if (mp > 0) { rr(g, left ? hx : hx + w2 * (1 - mp), by + 38, w2 * mp, 7, 2); g.fill(); }
+
     if (f.weapon) {
-      g.save(); g.translate(left ? bx + bw + 58 : bx - 14, by + 46); g.scale(0.8, 0.8);
+      g.save(); g.translate(left ? bx + cardW - 17 : bx + 17, by + 43); g.scale(0.66, 0.66);
       weaponShape(g, f.weapon.kind);
       g.restore();
     }
   }
+
+  g.fillStyle = 'rgba(9,14,30,.9)';
+  rr(g, W / 2 - 54, 14, 108, 38, 6); g.fill();
+  g.strokeStyle = 'rgba(244,207,118,.35)';
+  rr(g, W / 2 - 53.5, 14.5, 107, 37, 6); g.stroke();
+  g.textAlign = 'center';
+  g.fillStyle = '#f4cf76';
+  g.font = '800 9px system-ui, "PingFang TC", sans-serif';
+  g.fillText('BATTLE', W / 2, 28);
+  g.fillStyle = '#f4ead6';
+  g.font = '800 13px system-ui, "PingFang TC", sans-serif';
+  g.fillText('TEAM  A  /  B', W / 2, 44);
 }
 
 function drawBanner(g, eng, frame) {
@@ -614,41 +642,71 @@ function drawTitle(g, frame, demoFighters) {
   g.drawImage(skyCache, 0, 0);
   g.drawImage(midCache, 0, 0);
   g.drawImage(groundCache, 0, 300);
-  g.fillStyle = 'rgba(15,8,20,.45)'; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(8,12,28,.58)'; g.fillRect(0, 0, W, H);
 
   for (const f of demoFighters) drawFighter(g, f, frame, 1.3);
 
-  g.textAlign = 'center';
-  g.font = '900 72px system-ui, "PingFang TC", sans-serif';
-  g.lineWidth = 12; g.strokeStyle = '#2a1408';
-  g.strokeText('小朋友齊打交', W / 2, 128);
-  const grad = g.createLinearGradient(0, 70, 0, 140);
-  grad.addColorStop(0, '#ffe98a'); grad.addColorStop(1, '#ff7a2f');
-  g.fillStyle = grad; g.fillText('小朋友齊打交', W / 2, 128);
-  g.font = 'bold 20px system-ui, "PingFang TC", sans-serif';
-  g.fillStyle = '#ffe9c8';
-  g.fillText('致敬復刻版 — 角色與招式向原作看齊,美術原創', W / 2, 166);
+  g.textAlign = 'left';
+  g.fillStyle = '#f4cf76';
+  g.font = '800 11px system-ui, "PingFang TC", sans-serif';
+  g.fillText('100 DAYS VIBE CODING  ·  DAY 4', 52, 52);
+  g.fillStyle = '#f4ead6';
+  g.font = '900 60px system-ui, "PingFang TC", sans-serif';
+  g.fillText('小朋友齊打交', 50, 116);
+  g.fillStyle = '#e8684a';
+  g.font = '800 17px system-ui, "PingFang TC", sans-serif';
+  g.fillText('LITTLE FIGHTERS TRIBUTE', 54, 145);
+  g.fillStyle = 'rgba(244,234,214,.78)';
+  g.font = '14px system-ui, "PingFang TC", sans-serif';
+  g.fillText('原創美術 · 經典招式 · 2.5D 群架', 54, 172);
 
-  g.font = 'bold 23px system-ui, "PingFang TC", sans-serif';
-  const blink = Math.floor(frame / 30) % 2 === 0;
   const modes = [
-    '1 — 單人對決(你 vs 電腦)',
-    '2 — 雙人對決(P1 vs P2)',
-    '3 — 單人 2v2(你+電腦隊友 vs 電腦×2)',
-    '4 — 雙人 2v2(你+P2 vs 電腦×2)',
+    ['1', '單人對決', '你  VS  電腦'],
+    ['2', '雙人對決', 'P1  VS  P2'],
+    ['3', '單人 2v2', '你＋隊友  VS  電腦'],
+    ['4', '雙人 2v2', 'P1＋P2  VS  電腦'],
   ];
   modes.forEach((m, i) => {
-    g.fillStyle = blink || i % 2 ? 'rgba(255,255,255,.95)' : 'rgba(255,235,180,.95)';
-    g.fillText(m, W / 2, 230 + i * 38);
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = 444 + col * 242, y = 64 + row * 92;
+    g.fillStyle = 'rgba(9,14,30,.86)';
+    rr(g, x, y, 226, 76, 8); g.fill();
+    g.strokeStyle = 'rgba(244,234,214,.2)';
+    rr(g, x + .5, y + .5, 225, 75, 8); g.stroke();
+    g.fillStyle = i % 2 ? '#4b8fd8' : '#e8684a';
+    g.fillRect(x, y + 10, 4, 56);
+    g.fillStyle = '#f4cf76';
+    g.font = '900 21px system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.fillText(m[0], x + 30, y + 45);
+    g.textAlign = 'left';
+    g.fillStyle = '#f4ead6';
+    g.font = '800 16px system-ui, "PingFang TC", sans-serif';
+    g.fillText(m[1], x + 58, y + 31);
+    g.fillStyle = 'rgba(244,234,214,.62)';
+    g.font = '11px system-ui, "PingFang TC", sans-serif';
+    g.fillText(m[2], x + 58, y + 51);
   });
 
-  g.font = '14px system-ui, "PingFang TC", sans-serif';
-  g.fillStyle = 'rgba(255,240,220,.85)';
-  g.fillText('P1:WASD 移動 / J 攻擊 / K 跳躍 / L 防禦        P2:方向鍵移動 / , 攻擊 / . 跳躍 / / 防禦', W / 2, 420);
-  g.fillText('搓招照原作:防+方向+攻 或 防+方向+跳(選角畫面有每隻的招式表)    雙擊方向 = 跑步    M = 音樂', W / 2, 446);
-  g.fillText('連打 4 下會把人打暈 → 走過去抓住 → 連按攻擊毆打,或按方向+攻擊過肩摔    倒地瞬間按跳 = 受身', W / 2, 472);
-  g.fillStyle = 'rgba(255,240,220,.5)';
-  g.fillText('純手繪 Canvas 致敬之作,玩法機制取自《Little Fighter 2》,素材皆為原創', W / 2, 518);
+  g.fillStyle = 'rgba(9,14,30,.88)';
+  rr(g, 40, 404, 880, 94, 8); g.fill();
+  g.fillStyle = '#f4cf76';
+  g.font = '800 10px system-ui, "PingFang TC", sans-serif';
+  g.textAlign = 'left';
+  g.fillText('PLAYER 1', 64, 430);
+  g.fillStyle = '#f4ead6';
+  g.font = '700 13px system-ui, "PingFang TC", sans-serif';
+  g.fillText('WASD  移動     J  攻擊     K  跳躍     L  防禦', 64, 455);
+  g.fillStyle = '#4b8fd8';
+  g.font = '800 10px system-ui, "PingFang TC", sans-serif';
+  g.fillText('PLAYER 2', 520, 430);
+  g.fillStyle = '#f4ead6';
+  g.font = '700 13px system-ui, "PingFang TC", sans-serif';
+  g.fillText('方向鍵  移動     ,  攻擊     .  跳躍     /  防禦', 520, 455);
+  g.textAlign = 'center';
+  g.fillStyle = 'rgba(244,234,214,.58)';
+  g.font = '11px system-ui, "PingFang TC", sans-serif';
+  g.fillText('按 1–4 選擇模式　·　防禦＋方向＋攻擊／跳躍施放絕招　·　M 音樂', W / 2, 520);
 }
 
 /* ============ 選角畫面 ============ */
@@ -657,35 +715,48 @@ function drawSelect(g, sel, frame, previews) {
   g.drawImage(skyCache, 0, 0);
   g.drawImage(midCache, 0, 0);
   g.drawImage(groundCache, 0, 300);
-  g.fillStyle = 'rgba(15,8,20,.55)'; g.fillRect(0, 0, W, H);
-  g.textAlign = 'center';
-  g.font = '900 36px system-ui, "PingFang TC", sans-serif';
-  g.fillStyle = '#ffe9c8'; g.fillText('選擇你的小朋友', W / 2, 56);
+  g.fillStyle = 'rgba(8,12,28,.68)'; g.fillRect(0, 0, W, H);
+  g.textAlign = 'left';
+  g.fillStyle = '#f4cf76';
+  g.font = '800 10px system-ui, "PingFang TC", sans-serif';
+  g.fillText('FIGHTER SELECT', 32, 32);
+  g.fillStyle = '#f4ead6';
+  g.font = '900 31px system-ui, "PingFang TC", sans-serif';
+  g.fillText('選擇你的角色', 30, 66);
+  g.textAlign = 'right';
+  g.fillStyle = 'rgba(244,234,214,.56)';
+  g.font = '12px system-ui, "PingFang TC", sans-serif';
+  g.fillText('每位角色都有不同的速度、連段與必殺技', W - 30, 55);
 
   const n = CHAR_KEYS.length;
-  const gap = 14, cw = Math.floor((W - 56 - gap * (n - 1)) / n), x0 = 28;
+  const gap = 10, cw = Math.floor((W - 56 - gap * (n - 1)) / n), x0 = 28;
   for (let i = 0; i < n; i++) {
     const key = CHAR_KEYS[i], c = CHARS[key];
-    const x = x0 + i * (cw + gap), y = 84, ch = 330;
-    g.fillStyle = 'rgba(28,20,36,.85)';
-    rr(g, x, y, cw, ch, 12); g.fill();
+    const x = x0 + i * (cw + gap), y = 86, ch = 344;
+    g.fillStyle = 'rgba(9,14,30,.9)';
+    rr(g, x, y, cw, ch, 8); g.fill();
+    g.strokeStyle = 'rgba(244,234,214,.16)';
+    rr(g, x + .5, y + .5, cw - 1, ch - 1, 8); g.stroke();
+    g.fillStyle = i % 2 ? '#4b8fd8' : '#e8684a';
+    g.fillRect(x, y, cw, 4);
     const p1on = sel.p1Idx === i, p2on = sel.humans > 1 && sel.p2Idx === i;
-    if (p1on) { g.strokeStyle = sel.p1Done ? '#ffd23e' : '#e85d4a'; g.lineWidth = 4; rr(g, x - 3, y - 3, cw + 6, ch + 6, 14); g.stroke(); }
-    if (p2on) { g.strokeStyle = sel.p2Done ? '#ffd23e' : '#4a90e8'; g.lineWidth = 4; rr(g, x + 3, y + 3, cw - 6, ch - 6, 10); g.stroke(); }
-    if (sel.cpuFlash === i) { g.strokeStyle = '#b89aff'; g.lineWidth = 3; rr(g, x + 6, y + 6, cw - 12, ch - 12, 8); g.stroke(); }
+    if (p1on) { g.strokeStyle = sel.p1Done ? '#f4cf76' : '#e8684a'; g.lineWidth = 4; rr(g, x - 2, y - 2, cw + 4, ch + 4, 10); g.stroke(); }
+    if (p2on) { g.strokeStyle = sel.p2Done ? '#f4cf76' : '#4b8fd8'; g.lineWidth = 4; rr(g, x + 3, y + 3, cw - 6, ch - 6, 7); g.stroke(); }
+    if (sel.cpuFlash === i) { g.strokeStyle = '#9b7dd2'; g.lineWidth = 3; rr(g, x + 6, y + 6, cw - 12, ch - 12, 6); g.stroke(); }
     const pf = previews[i];
-    pf.x = x + cw / 2; pf.z = y + 150;
+    pf.x = x + cw / 2; pf.z = y + 142;
     drawFighter(g, pf, frame, 1.25);
-    g.font = 'bold 19px system-ui, "PingFang TC", sans-serif';
-    g.fillStyle = '#fff'; g.fillText(c.name, x + cw / 2, y + 182);
-    g.font = '13px system-ui, "PingFang TC", sans-serif';
-    g.fillStyle = '#d8c8a8'; g.fillText(c.zh, x + cw / 2, y + 202);
+    g.textAlign = 'center';
+    g.font = '800 19px system-ui, "PingFang TC", sans-serif';
+    g.fillStyle = '#f4ead6'; g.fillText(c.name, x + cw / 2, y + 174);
+    g.font = '12px system-ui, "PingFang TC", sans-serif';
+    g.fillStyle = '#f4cf76'; g.fillText(c.zh, x + cw / 2, y + 194);
     // 招式表(原作指令);招多的角色(Woody 6 招)壓縮成單行
     const mvEntries = Object.entries(c.moves);
     const compact = mvEntries.length > 4;
     g.font = (compact ? '11px' : '12px') + ' system-ui, "PingFang TC", sans-serif';
-    g.fillStyle = '#a8c8e8';
-    let my = y + (compact ? 220 : 226);
+    g.fillStyle = '#b9cbe4';
+    let my = y + (compact ? 216 : 220);
     for (const [k, m] of mvEntries) {
       const keyTxt = '防' + (k[0] === '>' ? '→' : k[0] === '^' ? '↑' : '↓') + (k[1] === 'A' ? '攻' : '跳');
       if (compact) {
@@ -693,29 +764,32 @@ function drawSelect(g, sel, frame, previews) {
         my += 19;
       } else {
         g.fillText(`${keyTxt} ${m.name}`, x + cw / 2, my);
-        g.fillStyle = '#7a90a8';
+        g.fillStyle = '#7f8ea7';
         g.fillText(`${m.mp} MP${m.hpCost ? ' + ' + m.hpCost + ' HP' : ''}`, x + cw / 2, my + 13);
-        g.fillStyle = '#a8c8e8';
+        g.fillStyle = '#b9cbe4';
         my += 30;
       }
       if (my > y + ch - 8) break;
     }
-    g.font = 'bold 14px system-ui';
-    if (p1on) { g.fillStyle = '#e85d4a'; g.fillText(sel.p1Done ? 'P1 ✓' : 'P1', x + 22, y + 22); }
-    if (p2on) { g.fillStyle = '#4a90e8'; g.fillText(sel.p2Done ? 'P2 ✓' : 'P2', x + cw - 26, y + 22); }
+    g.font = '800 12px system-ui';
+    if (p1on) { g.textAlign = 'left'; g.fillStyle = '#e8684a'; g.fillText(sel.p1Done ? 'P1 READY' : 'P1', x + 12, y + 23); }
+    if (p2on) { g.textAlign = 'right'; g.fillStyle = '#4b8fd8'; g.fillText(sel.p2Done ? 'P2 READY' : 'P2', x + cw - 12, y + 23); }
   }
-  g.font = '16px system-ui, "PingFang TC", sans-serif';
-  g.fillStyle = 'rgba(255,240,220,.9)';
+  g.textAlign = 'center';
+  g.fillStyle = 'rgba(9,14,30,.9)';
+  rr(g, 176, 448, 608, 58, 7); g.fill();
+  g.font = '700 15px system-ui, "PingFang TC", sans-serif';
+  g.fillStyle = '#f4ead6';
   let hint;
   if (!sel.p1Done) hint = 'P1:A / D 移動游標,J 確認';
   else if (sel.humans > 1 && !sel.p2Done) hint = 'P2:← / → 移動游標,, 確認';
   else if (sel.cpuT > 0) hint = '電腦選角中…';
   else if (sel.cpuKeys.length) hint = '電腦選了 ' + sel.cpuKeys.map(k => CHARS[k].name).join('、') + ',準備開戰!';
   else hint = '準備開戰…';
-  g.fillText(hint, W / 2, 462);
-  g.fillStyle = 'rgba(255,240,220,.5)';
-  g.font = '13px system-ui, "PingFang TC", sans-serif';
-  g.fillText('Esc — 回到標題', W / 2, 490);
+  g.fillText(hint, W / 2, 472);
+  g.fillStyle = 'rgba(244,234,214,.5)';
+  g.font = '11px system-ui, "PingFang TC", sans-serif';
+  g.fillText('A / D 移動　·　J 確認　·　Esc 返回標題', W / 2, 494);
 }
 
 /* ============ 音效 + BGM(WebAudio 即時生成,零音檔) ============ */

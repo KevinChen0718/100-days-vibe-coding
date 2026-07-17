@@ -13,48 +13,57 @@
     <canvas id="cv" width="960" height="620"></canvas>
 
     <!-- 上方資訊列 -->
-    <div id="topbar">
+    <div id="topbar" aria-live="polite">
       <div class="tb-left">
+        <span class="game-kicker">SLEEPWALKER · DAY 1</span>
         <span id="chapter" class="chapter"></span>
         <span id="lvname" class="lvname"></span>
       </div>
-      <div id="hintline" class="hintline"></div>
+      <div class="mission-card">
+        <span class="mission-label">關卡目標</span>
+        <span id="hintline" class="hintline"></span>
+      </div>
     </div>
 
     <!-- 下方控制列 -->
-    <div id="controls">
-      <button id="btnStart" class="btn primary">放他走 ▶</button>
-      <button id="btnReset" class="btn">重來</button>
-      <button id="btnHint" class="btn">提示</button>
-      <button id="btnSpeed" class="btn">1×</button>
-      <button id="btnMenu" class="btn">選關</button>
-      <button id="btnSound" class="btn">♪ 開</button>
+    <div id="controls" aria-label="遊戲控制">
+      <button id="btnStart" class="btn primary"><span>放他走</span><kbd>Space</kbd></button>
+      <span class="control-divider" aria-hidden="true"></span>
+      <button id="btnReset" class="btn"><span>重來</span><kbd>R</kbd></button>
+      <button id="btnHint" class="btn"><span>提示</span><kbd>H</kbd></button>
+      <button id="btnSpeed" class="btn"><span>速度 1×</span></button>
+      <span class="control-divider" aria-hidden="true"></span>
+      <button id="btnMenu" class="btn"><span>選關</span></button>
+      <button id="btnSound" class="btn"><span>音樂 開</span></button>
     </div>
 
     <!-- 標題畫面 -->
     <div id="titleScreen" class="overlay show">
       <div class="panel title-panel">
-        <div class="moon-deco"></div>
+        <p class="eyebrow">100 DAYS VIBE CODING · DAY 1</p>
         <h1 class="title-zh">夢遊先生</h1>
-        <p class="title-en">Mr. Sleepwalker</p>
-        <p class="title-desc">夜深了，夢遊先生閉著眼睛從床上爬起，搖搖晃晃地走向屋頂。<br>
-          你不能直接控制他——只能<b>移動屋頂上的物件</b>幫他鋪路。<br>
-          可以先擺好、也可以<b>邊走邊擺</b>；但物件<b>一旦被他碰到就固定</b>，<br>
-          所以沒辦法拖一塊板子把他一路推到底。別讓他摔下去或被嚇醒，送他回家。</p>
+        <p class="title-en">MR. SLEEPWALKER</p>
+        <p class="title-lead">別吵醒他。移動屋頂物件，替這位閉著眼睛的旅人鋪一條回家的路。</p>
+        <ul class="title-rules">
+          <li>拖曳木板、天線、遮陽棚與木箱改變路線</li>
+          <li>物件被踩到後就會固定，必須先想好下一步</li>
+          <li>避開尖刺、落水與太高的墜落</li>
+        </ul>
         <div class="title-btns">
           <button id="btnPlay" class="btn primary big">從第一關開始</button>
           <button id="btnPlayResume" class="btn big" style="display:none">繼續上次進度</button>
-          <button id="btnSelectFromTitle" class="btn big">選關</button>
+          <button id="btnSelectFromTitle" class="btn big">選擇關卡</button>
         </div>
-        <p class="credit">向 1999 年 Sarbakan《Good Night Mr. Snoozleberg》致敬的重新詮釋作品。<br>
-          100 天 Vibe Coding 馬拉松 · Day 1</p>
+        <p class="credit">Inspired by Good Night Mr. Snoozleberg · Original art &amp; code</p>
       </div>
     </div>
 
     <!-- 選關畫面 -->
     <div id="levelSelectScreen" class="overlay">
       <div class="panel">
+        <p class="eyebrow">NIGHT ROUTE</p>
         <h2>選擇關卡</h2>
+        <p class="panel-copy">每一夜都有一條唯一的安全路線。</p>
         <div id="lvGrid" class="lv-grid"></div>
         <button id="btnCloseSelect" class="btn">關閉</button>
       </div>
@@ -63,6 +72,7 @@
     <!-- 過關 -->
     <div id="winScreen" class="overlay">
       <div class="panel small">
+        <p class="eyebrow">ROUTE CLEARED</p>
         <h2 id="winText">過關！</h2>
         <p id="winSub" class="sub"></p>
         <button id="btnNext" class="btn primary big">下一關 →</button>
@@ -72,6 +82,7 @@
     <!-- 失敗 -->
     <div id="loseScreen" class="overlay">
       <div class="panel small">
+        <p class="eyebrow danger">ROUTE FAILED</p>
         <h2 id="loseText" class="lose-title">先生醒了！</h2>
         <p class="sub">調整一下物件，再試一次。</p>
         <button id="btnRetry" class="btn primary big">再試一次</button>
@@ -81,8 +92,8 @@
     <!-- 結局 -->
     <div id="finaleScreen" class="overlay">
       <div class="panel">
-        <div class="moon-deco"></div>
-        <h2>天亮了 ☀</h2>
+        <p class="eyebrow">ALL NIGHTS CLEARED</p>
+        <h2>天亮了</h2>
         <p class="title-desc">你成功引導夢遊先生走完了每一個夜晚，<br>
           他從沒摔醒，安穩地回到了床上。<br>恭喜全破！</p>
         <button id="btnFinaleMenu" class="btn primary big">回到選關</button>
@@ -92,7 +103,7 @@
 
   <div id="rotateHint">
     <div class="rotate-inner">
-      <div class="rotate-icon">↻</div>
+      <p class="rotate-label">LANDSCAPE MODE</p>
       <h2>請把手機轉成橫向</h2>
       <p>夢遊先生是橫向遊戲，橫拿螢幕比較好玩。</p>
     </div>
