@@ -1,74 +1,90 @@
-# Game UI Remaster — Design QA
+# Game UI Full Redraw — Design QA
 
-- Source visual truth: `/Users/kevinchen/.codex/generated_images/019f70bc-ebe5-7c80-b7e0-31500e0d1ee0/call_5VA8o7h05XiOg0wxZptcJY5j.png`
-- Full comparison evidence: `/private/tmp/game-ui-qa/comparison-all.png`
+- Source visual truth: `docs/superpowers/specs/assets/2026-07-18-game-ui-graphic-arcade-reference.png`
+- Full comparison evidence: `/private/tmp/game-ui-redraw-qa/comparison.png`
+- Focused comparison evidence:
+  - `/private/tmp/game-ui-redraw-qa/focused-day1.png`
+  - `/private/tmp/game-ui-redraw-qa/focused-day4.png`
+  - `/private/tmp/game-ui-redraw-qa/focused-day5.png`
 - Implementation screenshots:
-  - `/private/tmp/game-ui-qa/day1-title.png`
-  - `/private/tmp/game-ui-qa/day1-play.png`
-  - `/private/tmp/game-ui-qa/day4-title.png`
-  - `/private/tmp/game-ui-qa/day4-select.png`
-  - `/private/tmp/game-ui-qa/day4-fight.png`
-  - `/private/tmp/game-ui-qa/day5-briefing.png`
-  - `/private/tmp/game-ui-qa/day5-play.png`
+  - `/private/tmp/game-ui-redraw-qa/day1-play.png`
+  - `/private/tmp/game-ui-redraw-qa/day4-fight.png`
+  - `/private/tmp/game-ui-redraw-qa/day5-play.png`
 - Desktop viewport: 1280 × 720
-- Responsive check: 844 × 390 landscape
-- States checked: title, game HUD, character select, mission briefing
+- Responsive viewport: 844 × 390 landscape
+- States checked:
+  - Day 1: title, active level, chapter selector
+  - Day 4: title, fighter select, active fight
+  - Day 5: mission briefing, active mission
 
 ## Full-view comparison
 
-The selected ImageGen board is a collection-level art-direction sheet rather than a literal
-single-game viewport. The implementation intentionally removes its persistent left anthology
-rail so the actual games keep the full playfield. It preserves the approved visual language:
-deep navy framing, warm cream typography, terracotta primary actions, forest/signal status
-colors, compact keyboard hints, thin geometric borders, and world-specific accents.
+The selected source is an art-direction board for three distinct games, not a literal
+pixel-for-pixel viewport. The redraw carries its Graphic Arcade language into the real games:
+oversized editorial type, hard-edged poster panels, screenprint texture, high-contrast command
+rails, world-specific palettes, and clear arcade-state hierarchy. HUD blocks remain deliberately
+more compact than the board so they do not obstruct playable space, matching the approved
+full-screen-menu plus non-obstructive-gameplay-HUD layout.
 
 ## Focused comparison
 
-Separate focused crops were not required because each implementation screenshot presents the
-complete 960 px game surface at a readable desktop size. The comparison sheet places all three
-complete implementation surfaces alongside the selected source board. Individual screenshots
-were also reviewed at full resolution for HUD copy, meters, objective states, and control labels.
+Each focused comparison places the source treatment and matching implementation state together.
+The comparison confirms that all three games now read as one designed anthology while keeping
+their own identities:
+
+- Day 1: midnight violet, acid yellow, paper-white mission tickets, dream-route typography.
+- Day 4: red-versus-blue fight poster, angular health bars, central timer, ringside command rail.
+- Day 5: polar navy, safety orange, operation-board hierarchy, squad and mission-status strips.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: passed. All games use the approved Noto Sans TC / system sans direction,
-  with stronger display hierarchy and compact uppercase English labels.
-- Spacing and layout rhythm: passed. HUD elements share an 8 px-oriented rhythm, aligned edge
-  rails, restrained radii, and consistent control grouping.
-- Colors and visual tokens: passed. Navy, cream, terracotta, signal gold, and forest accents map
-  consistently across the three games without erasing their individual worlds.
-- Image and asset fidelity: passed. Existing original Canvas character and environment art is
-  preserved; no placeholder or unrelated generated asset replaces gameplay art.
-- Copy and content: passed. Traditional Chinese game instructions remain accurate, keyboard
-  hints match implemented controls, and mission / objective status is not communicated by color
-  alone.
+- Fonts and typography: passed. Oversized condensed-style display copy and compact functional
+  labels reproduce the source hierarchy without sacrificing Traditional Chinese legibility.
+- Spacing and layout rhythm: passed. Edge-aligned rails, sharp panels, deliberate overlap, and
+  strong negative space replace the previous card-like UI.
+- Colors and visual tokens: passed. Each game uses its source-specific palette while sharing
+  paper, ink, warning, border, and keycap behavior.
+- Image and asset fidelity: passed. Generated screenprint texture assets are fitted to each
+  game's frame; existing character and environment art remains intact.
+- Copy and content: passed. Objective, control, selection, status, and result copy matches the
+  implemented interactions.
+- Border and radius fidelity: passed. The redraw uses hard corners and poster cuts instead of
+  the rounded dashboard treatment rejected in the prior iteration.
 
 ## Interaction and browser checks
 
-- Day 1: started the first level through the title CTA and verified the live HUD and controls.
-- Day 4: selected mode 1, confirmed a fighter, entered combat, and verified the battle HUD.
-- Day 5: started the mission from the briefing and verified squad and objective HUD states.
+- Day 1: Space and primary CTA start play; chapter selector opens and closes; live objective and
+  command HUD render correctly.
+- Day 4: mode selection, fighter selection, battle start, pause overlay, health bars, timer, and
+  result treatment render correctly.
+- Day 5: mission briefing starts play; squad selection, objective status, mission banner, and
+  command rail render correctly.
 - Browser console: no warnings or errors in the checked states.
+- Responsive check: Day 1 and Day 4 reflow cleanly at 844 × 390. Day 5 keeps its native 3:2
+  canvas centered at 573 × 382 with no clipping.
 
 ## Comparison history
 
-1. Initial responsive pass found the Day 1 title panel taller than a 390 px landscape viewport.
-   - Fix: added a compact short-height layout, hid nonessential rule copy, and removed background
-     HUD chrome while the title overlay is open.
-   - Post-fix evidence: title panel fits fully at 844 × 390 with both primary actions visible.
-2. Initial responsive pass found Day 5's outer header and footer consuming too much short-height
-   space.
-   - Fix: hide outer framing below 520 px height and give the Canvas the full landscape height.
-   - Post-fix evidence: mission briefing fits within the 844 × 390 viewport.
+1. The first Day 5 gameplay comparison lacked a dominant current-state signal.
+   - Severity: P2.
+   - Fix: added the orange `任務進行中` poster banner when no alert is active.
+   - Post-fix evidence: `/private/tmp/game-ui-redraw-qa/day5-play.png`.
+2. The first Day 1 title capture occurred before its texture asset finished loading and appeared
+   too dark.
+   - Fix: verified the stable post-load state and responsive state; the paper and violet poster
+     treatment renders correctly without a code change.
 
 ## Findings
 
 - No actionable P0, P1, or P2 issues remain.
 
-## Follow-up polish
+## Intentional constraints and P3 follow-ups
 
-- P3: Day 4 and Day 5 remain desktop-first fixed-resolution Canvas games, so dense secondary copy
-  becomes small on short landscape phones. Primary actions and status remain visible; a future
-  mobile-specific HUD mode could simplify secondary instructions further.
+- P3: Day 1 uses a compact top objective ticket instead of the source's large left mission panel
+  to preserve the platforming sightline.
+- P3: Day 4 keeps the game's existing pixel fighters instead of introducing new portrait art,
+  consistent with the approved non-goal of redrawing characters.
+- P3: Day 5 keeps its native 3:2 gameplay ratio on short landscape phones, so secondary copy is
+  smaller than Day 1 and Day 4; the canvas remains centered and fully visible.
 
 final result: passed

@@ -5,6 +5,40 @@ var Renderer = (function () {
 
   var terrain = null; // 預先繪好的地形離屏 canvas
   var W = 0, H = 0;   // 世界像素尺寸
+  var frostUiTexture = typeof Image !== 'undefined' ? new Image() : null;
+  if (frostUiTexture) frostUiTexture.src = 'assets/ui-frostfjord-texture.webp';
+
+  function drawUiTexture(ctx, view, alpha) {
+    if (!frostUiTexture || !frostUiTexture.complete || !frostUiTexture.naturalWidth) return;
+    ctx.save();
+    ctx.globalAlpha = alpha === undefined ? 0.36 : alpha;
+    ctx.drawImage(frostUiTexture, 0, 0, view.w, view.h);
+    ctx.restore();
+  }
+
+  function cutPanel(ctx, x, y, w, h, color, cut) {
+    cut = cut || 18;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w - cut, y);
+    ctx.lineTo(x + w, y + cut);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x + cut, y + h);
+    ctx.lineTo(x, y + h - cut);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function keycap(ctx, key, x, y, dark) {
+    ctx.strokeStyle = dark ? '#0b1729' : '#f4f0e8';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, 24, 18);
+    ctx.fillStyle = dark ? '#0b1729' : '#f4f0e8';
+    ctx.font = '900 9px "Arial Narrow", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(key, x + 12, y + 13);
+  }
 
   /* 決定性雜湊：地形變化不靠 random，重繪結果固定 */
   function hash(c, r) {
@@ -500,7 +534,7 @@ var Renderer = (function () {
   }
 
   /* ---------- UI ---------- */
-  function drawUI(ctx, state, view) {
+  function drawUILegacy(ctx, state, view) {
     var cw = view.w;
     // 警戒紅暈
     var anyAlert = state.guards.some(function (g) { return g.alive && g.state === 'alert'; });
@@ -630,7 +664,7 @@ var Renderer = (function () {
     }
   }
 
-  function panel(ctx, view, w, h) {
+  function panelLegacy(ctx, view, w, h) {
     var x = (view.w - w) / 2, y = (view.h - h) / 2;
     ctx.fillStyle = 'rgba(5,11,23,0.88)';
     ctx.fillRect(0, 0, view.w, view.h);
@@ -644,7 +678,7 @@ var Renderer = (function () {
     return { x: x, y: y };
   }
 
-  function drawBriefing(ctx, state, view) {
+  function drawBriefingLegacy(ctx, state, view) {
     var br = state.level.briefing;
     var p = panel(ctx, view, 760, 500);
     var left = p.x + 38, top = p.y + 34;
@@ -717,7 +751,7 @@ var Renderer = (function () {
     ctx.fillText('近距離視野無法躲藏 · 遠距離蹲低可保持隱蔽', left + 664, top + 408);
   }
 
-  function drawOver(ctx, state, view) {
+  function drawOverLegacy(ctx, state, view) {
     var win = state.result === 'win';
     var p = panel(ctx, view, 520, 286);
     ctx.textAlign = 'left';
@@ -749,6 +783,261 @@ var Renderer = (function () {
     ctx.fillStyle = win ? '#8bc5a4' : '#f1eadc';
     ctx.font = '800 13px "Noto Sans TC",sans-serif';
     ctx.fillText(win ? 'ENTER  再玩一次' : 'ENTER  重新開始' + (view.hasSave ? '　　L  讀取快速存檔' : ''), p.x + 34, p.y + 240);
+  }
+
+  function drawUI(ctx, state, view) {
+    var navy = '#0a1a32';
+    var ink = '#09111f';
+    var paper = '#f4f0e8';
+    var ice = '#dbe8ef';
+    var orange = '#ef5b2a';
+    var green = '#507c68';
+    var anyAlert = state.guards.some(function (g) { return g.alive && g.state === 'alert'; });
+    var anySus = state.guards.some(function (g) { return g.alive && g.state === 'sus'; });
+
+    drawUiTexture(ctx, view, 0.08);
+
+    cutPanel(ctx, 0, 0, 252, 92, navy, 24);
+    ctx.fillStyle = orange;
+    ctx.fillRect(0, 0, 9, 92);
+    ctx.fillStyle = paper;
+    ctx.textAlign = 'left';
+    ctx.font = '900 9px "Arial Narrow", system-ui, sans-serif';
+    ctx.fillText('100 DAYS · DAY 5 / FIELD OPERATION', 20, 24);
+    ctx.font = '950 25px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    ctx.fillText('霜峽行動', 20, 54);
+    ctx.fillStyle = orange;
+    ctx.font = '900 10px "Arial Narrow", system-ui, sans-serif';
+    ctx.fillText('OPERATION FROSTFJORD', 20, 74);
+
+    state.units.forEach(function (u, i) {
+      var x = 278 + i * 108;
+      var selected = state.selected === u.id;
+      cutPanel(ctx, x, 12, 96, 68, selected ? orange : 'rgba(10,26,50,.94)', 13);
+      ctx.fillStyle = selected ? ink : paper;
+      ctx.font = '950 17px Impact, "Arial Narrow", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(String(i + 1), x + 10, 35);
+      ctx.font = '900 13px "PingFang TC", system-ui, sans-serif';
+      ctx.fillText(u.name, x + 32, 35);
+      ctx.fillStyle = selected ? ink : 'rgba(244,240,232,.65)';
+      ctx.font = '800 8px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+      ctx.fillText(!u.alive ? 'KIA' : u.inBoat ? '船上' : u.crouch ? '隱蔽' : '行動中', x + 10, 53);
+      for (var h = 0; h < 3; h++) {
+        ctx.fillStyle = h < u.hp ? (selected ? ink : orange) : (selected ? 'rgba(9,17,31,.24)' : 'rgba(244,240,232,.18)');
+        ctx.fillRect(x + 10 + h * 25, 62, 20, 4);
+      }
+    });
+
+    var objectives = state.level.objectives;
+    var flagMap = {
+      boat: state.flags.boatBoarded,
+      island: state.flags.landedIsland,
+      station: state.flags.stationDown,
+      extract: state.flags.extracted
+    };
+    cutPanel(ctx, view.w - 238, 0, 238, 154, 'rgba(10,26,50,.95)', 24);
+    ctx.fillStyle = orange;
+    ctx.fillRect(view.w - 238, 0, 238, 8);
+    ctx.fillStyle = paper;
+    ctx.textAlign = 'left';
+    ctx.font = '950 14px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    ctx.fillText('任務進度', view.w - 218, 35);
+    ctx.fillStyle = 'rgba(244,240,232,.58)';
+    ctx.font = '900 8px "Arial Narrow", system-ui, sans-serif';
+    ctx.fillText('MISSION OBJECTIVES', view.w - 218, 51);
+    objectives.forEach(function (o, i) {
+      var done = flagMap[o.id];
+      ctx.fillStyle = done ? green : orange;
+      ctx.fillRect(view.w - 218, 67 + i * 19, 12, 12);
+      ctx.fillStyle = done ? paper : 'rgba(244,240,232,.82)';
+      ctx.font = '800 10px "PingFang TC", system-ui, sans-serif';
+      ctx.fillText(o.text, view.w - 196, 77 + i * 19);
+    });
+
+    var fox = state.units.filter(function (u) { return u.kind === 'fox'; })[0];
+    if (fox && state.selected === 'fox') {
+      cutPanel(ctx, 278, 86, 166, 28, navy, 8);
+      ctx.fillStyle = '#f3c533';
+      ctx.font = '900 10px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+      ctx.fillText('手槍彈藥  ' + fox.ammo + ' / 6', 294, 104);
+    }
+
+    if (anyAlert || anySus) {
+      var warning = anyAlert ? '敵軍發現你了' : '敵軍正在起疑';
+      var wx = view.w / 2 - 142;
+      cutPanel(ctx, wx, 118, 284, 46, anyAlert ? '#d9332f' : orange, 16);
+      ctx.fillStyle = paper;
+      ctx.font = '950 22px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(warning, view.w / 2, 148);
+    } else {
+      cutPanel(ctx, view.w / 2 - 108, 126, 216, 38, orange, 13);
+      ctx.fillStyle = paper;
+      ctx.font = '950 19px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('任務進行中', view.w / 2, 151);
+    }
+
+    state.barrels.forEach(function (b) {
+      if (b.fuse <= 0) return;
+      cutPanel(ctx, view.w / 2 - 150, 18, 300, 66, '#d9332f', 18);
+      ctx.fillStyle = paper;
+      ctx.font = '950 31px Impact, "Arial Narrow", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('引爆 ' + b.fuse.toFixed(1) + ' 秒', view.w / 2, 60);
+    });
+
+    ctx.fillStyle = 'rgba(7,18,34,.97)';
+    ctx.fillRect(0, view.h - 58, view.w, 58);
+    ctx.fillStyle = orange;
+    ctx.fillRect(0, view.h - 58, view.w, 5);
+    ctx.fillStyle = paper;
+    ctx.textAlign = 'left';
+    ctx.font = '800 11px "PingFang TC", system-ui, sans-serif';
+    ctx.fillText(state.hint || '選擇隊員，點擊地面下達命令。', 18, view.h - 34);
+    var commands = [
+      ['1–3', '換人'],
+      ['C', '蹲低'],
+      ['E', '搬運'],
+      ['F', '互動'],
+      ['Q', '誘餌'],
+      ['V', '視野'],
+      ['K/L', '存讀']
+    ];
+    var startX = 360;
+    commands.forEach(function (command, i) {
+      var x = startX + i * 82;
+      keycap(ctx, command[0], x, view.h - 31, false);
+      ctx.fillStyle = 'rgba(244,240,232,.62)';
+      ctx.font = '800 8px "PingFang TC", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(command[1], x + 31, view.h - 18);
+    });
+    if (view.saveFlash > 0) {
+      cutPanel(ctx, view.w - 226, view.h - 102, 210, 34, green, 10);
+      ctx.fillStyle = paper;
+      ctx.font = '800 10px "PingFang TC", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(view.saveFlashText.replace('✓ ', ''), view.w - 121, view.h - 81);
+    }
+  }
+
+  function drawBriefing(ctx, state, view) {
+    var navy = '#0a1a32';
+    var ink = '#09111f';
+    var paper = '#f4f0e8';
+    var orange = '#ef5b2a';
+    ctx.fillStyle = paper;
+    ctx.fillRect(0, 0, view.w, view.h);
+    drawUiTexture(ctx, view, 0.56);
+
+    cutPanel(ctx, 0, 0, 330, view.h, navy, 46);
+    ctx.fillStyle = orange;
+    ctx.fillRect(0, 0, 12, view.h);
+    ctx.fillStyle = paper;
+    ctx.textAlign = 'left';
+    ctx.font = '900 10px "Arial Narrow", system-ui, sans-serif';
+    ctx.fillText('CLASSIFIED / FIELD BRIEFING 01', 32, 42);
+    ctx.font = '950 50px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    ctx.fillText('霜峽', 32, 108);
+    ctx.fillText('行動', 32, 160);
+    ctx.fillStyle = orange;
+    ctx.font = '900 13px "Arial Narrow", system-ui, sans-serif';
+    ctx.fillText('OPERATION FROSTFJORD', 34, 190);
+    ctx.fillStyle = 'rgba(244,240,232,.68)';
+    ctx.font = '800 11px "PingFang TC", system-ui, sans-serif';
+    ctx.fillText(state.level.briefing.date, 34, 226);
+    ctx.fillText('挪威海岸 / 夜間滲透', 34, 246);
+
+    ctx.fillStyle = paper;
+    ctx.font = '900 12px "PingFang TC", system-ui, sans-serif';
+    ctx.fillText('任務目標', 34, 300);
+    state.level.objectives.forEach(function (o, i) {
+      ctx.fillStyle = orange;
+      ctx.fillRect(34, 320 + i * 40, 18, 18);
+      ctx.fillStyle = paper;
+      ctx.font = '800 12px "PingFang TC", system-ui, sans-serif';
+      ctx.fillText(o.text, 64, 334 + i * 40);
+    });
+
+    ctx.fillStyle = ink;
+    ctx.font = '900 10px "Arial Narrow", system-ui, sans-serif';
+    ctx.fillText('MISSION ROUTE / PRIMARY PATH', 382, 54);
+    ctx.fillStyle = orange;
+    ctx.font = '950 32px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    ctx.fillText('會合 → 奪艇 → 渡海 → 爆破 → 撤離', 380, 96);
+    ctx.fillStyle = ink;
+    ctx.font = '700 14px "PingFang TC", system-ui, sans-serif';
+    ctx.fillText('德軍在北島架設無線電中繼站。三人必須全員生還，', 382, 138);
+    ctx.fillText('炸毀目標後返回南岸碼頭，完成撤離。', 382, 162);
+
+    var roster = [
+      ['1', '狼', '近身刀殺 / 搬運 / 誘餌'],
+      ['2', '狐', '手槍射擊 / 遠距壓制'],
+      ['3', '海豹', '駕駛小艇 / 機動支援']
+    ];
+    roster.forEach(function (r, i) {
+      var y = 214 + i * 86;
+      cutPanel(ctx, 382, y, 520, 70, i === 0 ? orange : navy, 18);
+      ctx.fillStyle = i === 0 ? ink : paper;
+      ctx.font = '950 24px Impact, "Arial Narrow", system-ui, sans-serif';
+      ctx.fillText(r[0], 402, y + 34);
+      ctx.font = '900 18px "PingFang TC", system-ui, sans-serif';
+      ctx.fillText(r[1], 452, y + 32);
+      ctx.fillStyle = i === 0 ? 'rgba(9,17,31,.68)' : 'rgba(244,240,232,.62)';
+      ctx.font = '800 11px "PingFang TC", system-ui, sans-serif';
+      ctx.fillText(r[2], 452, y + 53);
+    });
+
+    cutPanel(ctx, 382, 500, 520, 82, ink, 22);
+    ctx.fillStyle = orange;
+    ctx.font = '950 20px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    ctx.fillText('ENTER / 點擊畫面　開始行動', 408, 538);
+    ctx.fillStyle = 'rgba(244,240,232,.62)';
+    ctx.font = '800 10px "PingFang TC", system-ui, sans-serif';
+    ctx.fillText('遠距離蹲低可保持隱蔽；近距離視野無法躲藏。', 408, 561);
+  }
+
+  function drawOver(ctx, state, view) {
+    var win = state.result === 'win';
+    var ink = '#09111f';
+    var paper = '#f4f0e8';
+    var orange = '#ef5b2a';
+    var red = '#d9332f';
+    var green = '#507c68';
+    ctx.fillStyle = win ? paper : ink;
+    ctx.fillRect(0, 0, view.w, view.h);
+    drawUiTexture(ctx, view, win ? 0.58 : 0.16);
+
+    cutPanel(ctx, 0, 70, view.w, 240, win ? green : red, 56);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = paper;
+    ctx.font = '900 12px "Arial Narrow", system-ui, sans-serif';
+    ctx.fillText(win ? 'OPERATION COMPLETE / ALL UNITS EXTRACTED' : 'OPERATION FAILED / FIELD REPORT', view.w / 2, 120);
+    ctx.font = '950 74px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    ctx.fillText(win ? '任務完成' : '任務失敗', view.w / 2, 220);
+    ctx.fillStyle = '#f3c533';
+    ctx.fillRect(view.w / 2 - 190, 252, 380, 8);
+
+    ctx.fillStyle = win ? ink : paper;
+    ctx.font = '800 14px "PingFang TC", system-ui, sans-serif';
+    if (win) {
+      var kills = state.guards.filter(function (g) { return !g.alive; }).length;
+      var mins = Math.floor(state.t / 60), secs = Math.floor(state.t % 60);
+      ctx.fillText('中繼站已摧毀，三名隊員完成撤離。', view.w / 2, 356);
+      ctx.font = '950 24px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+      ctx.fillText('耗時 ' + mins + ' 分 ' + secs + ' 秒　/　擊殺 ' + kills + ' 名哨兵', view.w / 2, 402);
+    } else {
+      ctx.fillText(state.failReason || '行動中斷。', view.w / 2, 356);
+      ctx.fillStyle = orange;
+      ctx.font = '900 13px "PingFang TC", system-ui, sans-serif';
+      ctx.fillText('提示：K 隨時存檔，L 讀取快速存檔。', view.w / 2, 398);
+    }
+    cutPanel(ctx, view.w / 2 - 248, 456, 496, 68, win ? ink : paper, 18);
+    ctx.fillStyle = win ? paper : ink;
+    ctx.font = '900 15px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    ctx.fillText(win ? 'ENTER　再次執行任務' : 'ENTER　重新開始' + (view.hasSave ? '　　L　讀取存檔' : ''), view.w / 2, 498);
   }
 
   return {
