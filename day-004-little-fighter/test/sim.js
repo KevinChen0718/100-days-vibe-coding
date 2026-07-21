@@ -14,6 +14,9 @@ for (const f of ['js/data.js', 'js/engine.js', 'js/ai.js']) {
 const ctx = {
   CHARS: vm.runInContext('CHARS', vmCtx),
   CHAR_KEYS: vm.runInContext('CHAR_KEYS', vmCtx),
+  LEGACY_CHAR_IDS: vm.runInContext('LEGACY_CHAR_IDS', vmCtx),
+  fighterSpriteIndex: vm.runInContext('fighterSpriteIndex', vmCtx),
+  Fighter: vm.runInContext('Fighter', vmCtx),
   Engine: vm.runInContext('Engine', vmCtx),
   STAGE_W: vm.runInContext('STAGE_W', vmCtx),
 };
@@ -25,6 +28,38 @@ const assert = (cond, msg) => {
 const vs1 = (a, b, opts = {}) => new ctx.Engine(
   [{ key: a, team: 0, isAI: opts.ai !== false }, { key: b, team: 1, isAI: opts.ai !== false }],
   opts);
+
+// 0. 原創角色 ID、舊 ID 相容與 Sprite Atlas 合約
+console.log('— 原創角色與 Sprite Atlas —');
+assert(ctx.CHAR_KEYS.join(',') === 'rook,vex,shade,ember,rime', `角色順序錯誤:${ctx.CHAR_KEYS.join(',')}`);
+for (const [legacy, current] of Object.entries(ctx.LEGACY_CHAR_IDS)) {
+  const f = new ctx.Fighter(legacy, 0, 1, 0, 0, false);
+  assert(f.key === current && f.c === ctx.CHARS[current], `${legacy} 沒有映射到 ${current}`);
+}
+const spriteStates = [
+  'idle', 'walk', 'run', 'jump', 'flip', 'attack1', 'attack2', 'attack3',
+  'runattack', 'jumpattack', 'leapatk', 'risekick', 'dashatk', 'turnkick',
+  'defend', 'teleport', 'explode', 'cast', 'weaponatk', 'throwitem', 'drink',
+  'catching', 'caught', 'hurt', 'fall', 'lying', 'stunned', 'frozen', 'win',
+];
+for (const state of spriteStates) {
+  const idx = ctx.fighterSpriteIndex({ state, stateTimer: 0 });
+  assert(Number.isInteger(idx) && idx >= 0 && idx < 12, `${state} 的 Sprite 格位非法:${idx}`);
+}
+assert(ctx.fighterSpriteIndex({ state: 'idle', stateTimer: 0 }) === 0, '待機第一拍不是格位 0');
+assert(ctx.fighterSpriteIndex({ state: 'idle', stateTimer: 18 }) === 1, '待機第二拍不是格位 1');
+assert(ctx.fighterSpriteIndex({ state: 'walk', stateTimer: 0 }) === 2, '走路第一拍不是格位 2');
+assert(ctx.fighterSpriteIndex({ state: 'walk', stateTimer: 8 }) === 3, '走路第二拍不是格位 3');
+for (const key of ctx.CHAR_KEYS) {
+  const atlasPath = path.join(__dirname, '..', 'assets', 'characters', `${key}-atlas.png`);
+  assert(fs.existsSync(atlasPath), `${key} Atlas 不存在`);
+  if (!fs.existsSync(atlasPath)) continue;
+  const png = fs.readFileSync(atlasPath);
+  const width = png.readUInt32BE(16), height = png.readUInt32BE(20), colorType = png[25];
+  assert(width % 4 === 0 && height % 3 === 0, `${key} Atlas ${width}×${height} 無法切成 4×3`);
+  assert(colorType === 6, `${key} Atlas 不是 RGBA PNG(colorType=${colorType})`);
+}
+console.log('  5 位新角色 ✓ 舊 ID 映射 ✓ 29 個狀態 ✓ 5 張透明 Atlas ✓');
 
 // 1. 全角色組合 AI 互打 1200 幀:不噴錯、數值不 NaN、有造成傷害
 console.log('— 5x5 角色組合 AI 互打 —');

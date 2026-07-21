@@ -195,12 +195,93 @@ function poseOf(f, frame) {
 }
 function atkProg(t, a0, a1) { return Math.max(0, Math.min(1, (t - a0 + 3) / (a1 - a0 + 2))); }
 
-// 90 年代格鬥 sprite 風:擬真比例 + 黑邊描線,先畫進半解析度離屏再 2 倍放大
-// (關閉平滑)→ 像素顆粒感。畫的內容仍是原創角色,只是風格語彙向那個年代靠。
+const FIGHTER_ATLASES = {};
+const FIGHTER_ATLAS_STATUS = {};
+if (typeof Image !== 'undefined') {
+  for (const key of CHAR_KEYS) {
+    const img = new Image();
+    FIGHTER_ATLASES[key] = img;
+    FIGHTER_ATLAS_STATUS[key] = 'loading';
+    img.addEventListener('load', () => {
+      const valid = img.naturalWidth > 0 && img.naturalHeight > 0
+        && img.naturalWidth % 4 === 0 && img.naturalHeight % 3 === 0;
+      FIGHTER_ATLAS_STATUS[key] = valid ? 'ready' : 'invalid';
+      if (!valid) console.warn(`[fighter-atlas] ${key} 尺寸必須可被 4 × 3 整除`, img.naturalWidth, img.naturalHeight);
+    });
+    img.addEventListener('error', () => {
+      FIGHTER_ATLAS_STATUS[key] = 'error';
+      console.warn(`[fighter-atlas] 無法載入 ${key}: ${img.src}`);
+    });
+    img.src = `assets/characters/${key}-atlas.png?v=20260722-original-cast`;
+  }
+}
+
+function drawAtlasFighter(g, f, frame, scale) {
+  const img = FIGHTER_ATLASES[f.key];
+  if (!img || FIGHTER_ATLAS_STATUS[f.key] !== 'ready') return false;
+
+  const index = fighterSpriteIndex(f, frame);
+  const sw = img.naturalWidth / 4;
+  const sh = img.naturalHeight / 3;
+  const sx = (index % 4) * sw;
+  const sy = Math.floor(index / 4) * sh;
+  const cellH = 140 * scale;
+  const cellW = cellH * (sw / sh);
+  const bottomPad = cellH * 0.1;
+  const p = poseOf(f, frame);
+  let alpha = p.alpha;
+  if (f.invuln > 0 && Math.floor(frame / 4) % 2 === 0) alpha *= 0.45;
+
+  g.save();
+  g.translate(f.x, f.z - f.y);
+  g.globalAlpha = Math.max(0.05, alpha);
+  if (f.state === 'explode') {
+    const k = Math.min(1, f.stateTimer / 12);
+    g.fillStyle = `rgba(255,90,30,${0.25 * k})`;
+    g.beginPath(); g.arc(0, -52 * scale, (58 + k * 34) * scale, 0, 7); g.fill();
+  }
+
+  g.translate(p.jitter * scale, (p.bob + p.crouch) * scale);
+  if (p.rot) {
+    const pivotY = f.state === 'lying' ? -18 * scale : -48 * scale;
+    g.translate(0, pivotY); g.rotate(p.rot); g.translate(0, -pivotY);
+  }
+  g.scale(f.facing, 1);
+  const smoothing = g.imageSmoothingEnabled;
+  const filter = g.filter;
+  g.imageSmoothingEnabled = true;
+  if (f.hitFlash > 0 && 'filter' in g) g.filter = 'brightness(0) saturate(0) invert(1)';
+  g.drawImage(img, sx, sy, sw, sh, -cellW / 2, -cellH + bottomPad, cellW, cellH);
+  g.imageSmoothingEnabled = smoothing;
+  if ('filter' in g) g.filter = filter || 'none';
+
+  if (f.weapon) drawHeldWeapon(g, f.weapon.kind, 25 * scale, -57 * scale, 1.15);
+  g.restore();
+
+  if (f.state === 'frozen') {
+    g.save();
+    g.translate(f.x, f.z - f.y);
+    g.globalAlpha = 0.5 * alpha; g.fillStyle = '#a8d8f8';
+    rr(g, -31 * scale, -108 * scale, 62 * scale, 112 * scale, 10); g.fill();
+    g.globalAlpha = 0.9 * alpha; g.strokeStyle = '#e8f6ff'; g.lineWidth = 2;
+    rr(g, -31 * scale, -108 * scale, 62 * scale, 112 * scale, 10); g.stroke();
+    g.beginPath();
+    g.moveTo(-14 * scale, -96 * scale); g.lineTo(-3 * scale, -66 * scale);
+    g.lineTo(-12 * scale, -36 * scale); g.stroke();
+    g.restore();
+  }
+  return true;
+}
+
+function drawFighter(g, f, frame, scale = 1) {
+  if (!drawAtlasFighter(g, f, frame, scale)) drawFighterLegacy(g, f, frame, scale);
+}
+
+// 圖片尚未載入或資產失敗時的舊版 Canvas fallback。
 const PIX = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 if (PIX) { PIX.width = 112; PIX.height = 104; }
 
-function drawFighter(g, f, frame, scale = 1) {
+function drawFighterLegacy(g, f, frame, scale = 1) {
   const c = f.c;
   const p = poseOf(f, frame);
   const flash = f.hitFlash > 0;
@@ -745,7 +826,7 @@ function drawTitle(g, frame, demoFighters) {
   g.fillText('LITTLE FIGHTERS', 34, 205);
   g.fillStyle = '#1657c8';
   g.font = '950 34px Impact, "Arial Narrow", system-ui, sans-serif';
-  g.fillText('TRIBUTE / TOURNAMENT', 36, 248);
+  g.fillText('ORIGINAL ROSTER / TOURNAMENT', 36, 248);
   g.fillStyle = '#35343b';
   g.font = '800 12px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
   g.fillText('原創角色美術 · 五名選手 · 經典必殺輸入', 38, 278);
@@ -825,7 +906,7 @@ function drawSelectLegacy(g, sel, frame, previews) {
     g.fillStyle = '#f4ead6'; g.fillText(c.name, x + cw / 2, y + 174);
     g.font = '12px system-ui, "PingFang TC", sans-serif';
     g.fillStyle = '#f4cf76'; g.fillText(c.zh, x + cw / 2, y + 194);
-    // 招式表(原作指令);招多的角色(Woody 6 招)壓縮成單行
+    // 招式較多的角色壓縮成單行
     const mvEntries = Object.entries(c.moves);
     const compact = mvEntries.length > 4;
     g.font = (compact ? '11px' : '12px') + ' system-ui, "PingFang TC", sans-serif';

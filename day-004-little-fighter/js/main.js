@@ -16,7 +16,7 @@ const sel = { mode: 1, humans: 1, p1Idx: 0, p2Idx: 3, p1Done: false, p2Done: fal
 
 // 標題示範角色與選角預覽
 const demoFighters = [
-  new Fighter('davis', 150, 1, 0, 0), new Fighter('firen', 810, -1, 1, 1),
+  new Fighter('rook', 150, 1, 0, 0), new Fighter('ember', 810, -1, 1, 1),
 ];
 demoFighters.forEach(f => { f.z = 470; });
 const previews = CHAR_KEYS.map((k, i) => new Fighter(k, 0, 1, i, i % 2));

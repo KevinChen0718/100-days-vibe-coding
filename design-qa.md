@@ -10,6 +10,13 @@
   - `/private/tmp/game-ui-redraw-qa/day1-play.png`
   - `/private/tmp/game-ui-redraw-qa/day4-fight.png`
   - `/private/tmp/game-ui-redraw-qa/day5-play.png`
+  - `/private/tmp/little-fighter-sprite-qa/title.png`
+  - `/private/tmp/little-fighter-sprite-qa/deliverable-select.png`
+  - `/private/tmp/little-fighter-sprite-qa/fight.png`
+  - `/private/tmp/little-fighter-sprite-qa/attack.png`
+  - `/private/tmp/little-fighter-sprite-qa/2p.png`
+  - `/private/tmp/little-fighter-sprite-qa/2v2.png`
+  - `/private/tmp/little-fighter-sprite-qa/responsive-844x390.png`
 - Desktop viewport: 1280 × 720
 - Responsive viewport: 844 × 390 landscape
 - States checked:
@@ -45,7 +52,8 @@ their own identities:
 - Colors and visual tokens: passed. Each game uses its source-specific palette while sharing
   paper, ink, warning, border, and keycap behavior.
 - Image and asset fidelity: passed. Generated screenprint texture assets are fitted to each
-  game's frame; existing character and environment art remains intact.
+  game's frame. Day 4 now uses five original transparent `4 x 3` Sprite Atlases with consistent
+  foot anchors, thick silhouette lines, readable faces, clothing, gloves, and footwear.
 - Copy and content: passed. Objective, control, selection, status, and result copy matches the
   implemented interactions.
 - Border and radius fidelity: passed. The redraw uses hard corners and poster cuts instead of
@@ -55,8 +63,9 @@ their own identities:
 
 - Day 1: Space and primary CTA start play; chapter selector opens and closes; live objective and
   command HUD render correctly.
-- Day 4: mode selection, fighter selection, battle start, pause overlay, health bars, timer, and
-  result treatment render correctly.
+- Day 4: mode selection, fighter selection, 1P, 2P, 2v2, battle start, attack poses, health bars,
+  timer, and result treatment render correctly. All five original roster assets load without a
+  fallback or transparent-edge artifact.
 - Day 5: mission briefing starts play; squad selection, objective status, mission banner, and
   command rail render correctly.
 - Browser console: no warnings or errors in the checked states.
@@ -73,6 +82,12 @@ their own identities:
    too dark.
    - Fix: verified the stable post-load state and responsive state; the paper and violet poster
      treatment renders correctly without a code change.
+3. The first normalized Day 4 Sprite Atlases lost alpha and rendered as white rectangles.
+   - Severity: P1.
+   - Fix: repeated normalization with an explicit transparent canvas, then checked every PNG is
+     RGBA, every corner is transparent, and every dimension is divisible by the `4 x 3` grid.
+   - Post-fix evidence: `/private/tmp/little-fighter-sprite-qa/deliverable-select.png` and
+     `/private/tmp/little-fighter-sprite-qa/2v2.png`.
 
 ## Findings
 
@@ -82,8 +97,6 @@ their own identities:
 
 - P3: Day 1 uses a compact top objective ticket instead of the source's large left mission panel
   to preserve the platforming sightline.
-- P3: Day 4 keeps the game's existing pixel fighters instead of introducing new portrait art,
-  consistent with the approved non-goal of redrawing characters.
 - P3: Day 5 keeps its native 3:2 gameplay ratio on short landscape phones, so secondary copy is
   smaller than Day 1 and Day 4; the canvas remains centered and fully visible.
 
