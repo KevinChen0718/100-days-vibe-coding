@@ -171,10 +171,10 @@
   function onWin() {
     setUnlocked(currentIndex + 1);
     sndWin();
-    $('winText').textContent = '過關！';
-    $('winSub').textContent = LEVELS[currentIndex].name + ' 完成';
+    $('winText').textContent = '夢境通過';
+    $('winSub').textContent = 'L' + LEVELS[currentIndex].id + ' · ' + LEVELS[currentIndex].name + ' 已完成';
     var isLast = currentIndex + 1 >= LEVELS.length;
-    $('btnNext').textContent = isLast ? '看結局' : '下一關 →';
+    $('btnNext').textContent = isLast ? '迎接天亮' : '翻到下一章';
     showOverlay('win');
   }
   function onLose(reason) {
@@ -203,7 +203,7 @@
   function updateControls() {
     var ready = game && game.state === 'ready';
     $('btnStart').disabled = !ready;
-    $('btnStart').innerHTML = ready ? '<span>放他走</span><kbd>Space</kbd>' : '<span>走路中</span>';
+    $('btnStart').innerHTML = ready ? '<kbd>Space</kbd><span>放他走</span>' : '<span>夢遊中</span>';
     $('btnSound').innerHTML = soundOn ? '<span>音樂 開</span>' : '<span>音樂 關</span>';
   }
 
@@ -374,6 +374,16 @@
     $('btnFinaleMenu').addEventListener('click', function () { sndClick(); hideOverlay('finale'); buildLevelSelect(); showOverlay('levelSelect'); });
 
     window.addEventListener('keydown', function (e) {
+      if ($('titleScreen').classList.contains('show') && e.code === 'Space') {
+        e.preventDefault();
+        ensureAudio(); sndClick(); hideOverlay('title'); loadLevel(0);
+        return;
+      }
+      if ($('levelSelectScreen').classList.contains('show') && e.code === 'Escape') {
+        e.preventDefault();
+        hideOverlay('levelSelect');
+        return;
+      }
       if (appState !== 'playing' || !game) return;
       if (e.code === 'Space') {
         e.preventDefault();

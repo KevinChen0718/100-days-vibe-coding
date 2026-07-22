@@ -15,88 +15,101 @@
     <!-- 上方資訊列 -->
     <div id="topbar" aria-live="polite">
       <div class="tb-left">
-        <span class="game-kicker">SLEEPWALKER · DAY 1</span>
+        <span class="game-kicker">SLEEPWALKER / DREAM ROUTE</span>
+        <span class="level-badge">DAY 1</span>
         <span id="chapter" class="chapter"></span>
         <span id="lvname" class="lvname"></span>
       </div>
       <div class="mission-card">
-        <span class="mission-label">關卡目標</span>
+        <span class="mission-label">OBJECTIVE / 關卡目標</span>
         <span id="hintline" class="hintline"></span>
       </div>
     </div>
 
     <!-- 下方控制列 -->
     <div id="controls" aria-label="遊戲控制">
-      <button id="btnStart" class="btn primary"><span>放他走</span><kbd>Space</kbd></button>
-      <span class="control-divider" aria-hidden="true"></span>
-      <button id="btnReset" class="btn"><span>重來</span><kbd>R</kbd></button>
-      <button id="btnHint" class="btn"><span>提示</span><kbd>H</kbd></button>
-      <button id="btnSpeed" class="btn"><span>速度 1×</span></button>
-      <span class="control-divider" aria-hidden="true"></span>
-      <button id="btnMenu" class="btn"><span>選關</span></button>
-      <button id="btnSound" class="btn"><span>音樂 開</span></button>
+      <div class="control-primary">
+        <button id="btnStart" class="btn primary"><kbd>Space</kbd><span>放他走</span></button>
+      </div>
+      <div class="control-group">
+        <button id="btnReset" class="btn"><kbd>R</kbd><span>重來</span></button>
+        <button id="btnHint" class="btn"><kbd>H</kbd><span>提示</span></button>
+        <button id="btnSpeed" class="btn"><span>速度 1×</span></button>
+      </div>
+      <div class="control-group utility">
+        <button id="btnMenu" class="btn"><span>選關</span></button>
+        <button id="btnSound" class="btn"><span>音樂 開</span></button>
+      </div>
     </div>
 
     <!-- 標題畫面 -->
     <div id="titleScreen" class="overlay show">
       <div class="panel title-panel">
-        <p class="eyebrow">100 DAYS VIBE CODING · DAY 1</p>
-        <h1 class="title-zh">夢遊先生</h1>
-        <p class="title-en">MR. SLEEPWALKER</p>
-        <p class="title-lead">別吵醒他。移動屋頂物件，替這位閉著眼睛的旅人鋪一條回家的路。</p>
-        <ul class="title-rules">
-          <li>拖曳木板、天線、遮陽棚與木箱改變路線</li>
-          <li>物件被踩到後就會固定，必須先想好下一步</li>
-          <li>避開尖刺、落水與太高的墜落</li>
-        </ul>
-        <div class="title-btns">
-          <button id="btnPlay" class="btn primary big">從第一關開始</button>
-          <button id="btnPlayResume" class="btn big" style="display:none">繼續上次進度</button>
-          <button id="btnSelectFromTitle" class="btn big">選擇關卡</button>
+        <div class="title-number" aria-hidden="true">
+          <span>DAY</span>
+          <strong>1</strong>
         </div>
-        <p class="credit">Inspired by Good Night Mr. Snoozleberg · Original art &amp; code</p>
+        <div class="title-copy">
+          <p class="eyebrow">100 DAYS VIBE CODING · DREAM COMIC 001</p>
+          <h1 class="title-zh">夢遊<br>先生</h1>
+          <p class="title-en">MR. SLEEPWALKER</p>
+          <p class="title-lead">別吵醒他。搬動屋頂上的物件，替閉著眼睛的旅人拼出一條安全路線。</p>
+          <div class="title-actions">
+            <button id="btnPlay" class="btn primary big"><span>開始夢遊</span><kbd>Space</kbd></button>
+            <button id="btnPlayResume" class="btn big" style="display:none">繼續上次進度</button>
+            <button id="btnSelectFromTitle" class="btn big">選擇章節</button>
+          </div>
+          <div class="title-rules">
+            <span>拖曳物件</span>
+            <span>鋪好路線</span>
+            <span>別讓他醒來</span>
+          </div>
+        </div>
+        <p class="credit">ORIGINAL ART &amp; CODE · INSPIRED BY GOOD NIGHT MR. SNOOZLEBERG</p>
       </div>
     </div>
 
     <!-- 選關畫面 -->
     <div id="levelSelectScreen" class="overlay">
-      <div class="panel">
-        <p class="eyebrow">NIGHT ROUTE</p>
-        <h2>選擇關卡</h2>
-        <p class="panel-copy">每一夜都有一條唯一的安全路線。</p>
+      <div class="panel chapter-panel">
+        <div class="panel-heading">
+          <p class="eyebrow">DREAM CHAPTERS / NIGHT ROUTE</p>
+          <h2>選擇夢境章節</h2>
+          <p class="panel-copy">十個夜晚，十條只能走一次的安全路線。</p>
+        </div>
         <div id="lvGrid" class="lv-grid"></div>
-        <button id="btnCloseSelect" class="btn">關閉</button>
+        <button id="btnCloseSelect" class="btn panel-close"><kbd>Esc</kbd><span>返回</span></button>
       </div>
     </div>
 
     <!-- 過關 -->
     <div id="winScreen" class="overlay">
-      <div class="panel small">
-        <p class="eyebrow">ROUTE CLEARED</p>
-        <h2 id="winText">過關！</h2>
+      <div class="panel small result-poster win-poster">
+        <p class="eyebrow">DREAM ROUTE CLEARED</p>
+        <h2 id="winText">夢境通過</h2>
         <p id="winSub" class="sub"></p>
-        <button id="btnNext" class="btn primary big">下一關 →</button>
+        <button id="btnNext" class="btn primary big">翻到下一章</button>
       </div>
     </div>
 
     <!-- 失敗 -->
     <div id="loseScreen" class="overlay">
-      <div class="panel small">
-        <p class="eyebrow danger">ROUTE FAILED</p>
+      <div class="panel small result-poster lose-poster">
+        <p class="eyebrow danger">DREAM INTERRUPTED</p>
         <h2 id="loseText" class="lose-title">先生醒了！</h2>
-        <p class="sub">調整一下物件，再試一次。</p>
-        <button id="btnRetry" class="btn primary big">再試一次</button>
+        <p class="sub">撕掉這一頁，重新安排屋頂上的物件。</p>
+        <button id="btnRetry" class="btn primary big">重新入夢</button>
       </div>
     </div>
 
     <!-- 結局 -->
     <div id="finaleScreen" class="overlay">
-      <div class="panel">
+      <div class="panel finale-poster">
         <p class="eyebrow">ALL NIGHTS CLEARED</p>
-        <h2>天亮了</h2>
+        <h2>天亮了！</h2>
         <p class="title-desc">你成功引導夢遊先生走完了每一個夜晚，<br>
           他從沒摔醒，安穩地回到了床上。<br>恭喜全破！</p>
-        <button id="btnFinaleMenu" class="btn primary big">回到選關</button>
+        <button id="btnFinaleMenu" class="btn primary big">重讀夢境章節</button>
       </div>
     </div>
   </div>

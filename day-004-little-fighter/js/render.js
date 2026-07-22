@@ -4,6 +4,37 @@
 
 let skyCache = null, midCache = null, groundCache = null;
 const MID_W = Math.ceil(W + (STAGE_W - W) * 0.35) + 60;
+const fighterUiTexture = typeof Image !== 'undefined' ? new Image() : null;
+if (fighterUiTexture) fighterUiTexture.src = 'assets/ui-fighter-texture.webp';
+
+function drawUiTexture(g, alpha = 0.32) {
+  if (!fighterUiTexture || !fighterUiTexture.complete || !fighterUiTexture.naturalWidth) return;
+  g.save();
+  g.globalAlpha = alpha;
+  g.drawImage(fighterUiTexture, 0, 0, W, H);
+  g.restore();
+}
+
+function cutPanel(g, x, y, w, h, color, cut = 18) {
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(x + cut, y);
+  g.lineTo(x + w, y);
+  g.lineTo(x + w - cut, y + h);
+  g.lineTo(x, y + h);
+  g.closePath();
+  g.fill();
+}
+
+function keycap(g, key, x, y, color = '#f4eedf') {
+  g.strokeStyle = color;
+  g.lineWidth = 1.5;
+  g.strokeRect(x, y, 24, 18);
+  g.fillStyle = color;
+  g.font = '900 10px "Arial Narrow", system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.fillText(key, x + 12, y + 13);
+}
 
 function buildStage() {
   // --- 天空層:黃昏 + 體育場燈塔 ---
@@ -164,12 +195,93 @@ function poseOf(f, frame) {
 }
 function atkProg(t, a0, a1) { return Math.max(0, Math.min(1, (t - a0 + 3) / (a1 - a0 + 2))); }
 
-// 90 年代格鬥 sprite 風:擬真比例 + 黑邊描線,先畫進半解析度離屏再 2 倍放大
-// (關閉平滑)→ 像素顆粒感。畫的內容仍是原創角色,只是風格語彙向那個年代靠。
+const FIGHTER_ATLASES = {};
+const FIGHTER_ATLAS_STATUS = {};
+if (typeof Image !== 'undefined') {
+  for (const key of CHAR_KEYS) {
+    const img = new Image();
+    FIGHTER_ATLASES[key] = img;
+    FIGHTER_ATLAS_STATUS[key] = 'loading';
+    img.addEventListener('load', () => {
+      const valid = img.naturalWidth > 0 && img.naturalHeight > 0
+        && img.naturalWidth % 4 === 0 && img.naturalHeight % 3 === 0;
+      FIGHTER_ATLAS_STATUS[key] = valid ? 'ready' : 'invalid';
+      if (!valid) console.warn(`[fighter-atlas] ${key} 尺寸必須可被 4 × 3 整除`, img.naturalWidth, img.naturalHeight);
+    });
+    img.addEventListener('error', () => {
+      FIGHTER_ATLAS_STATUS[key] = 'error';
+      console.warn(`[fighter-atlas] 無法載入 ${key}: ${img.src}`);
+    });
+    img.src = `assets/characters/${key}-atlas.png?v=20260722-original-cast`;
+  }
+}
+
+function drawAtlasFighter(g, f, frame, scale) {
+  const img = FIGHTER_ATLASES[f.key];
+  if (!img || FIGHTER_ATLAS_STATUS[f.key] !== 'ready') return false;
+
+  const index = fighterSpriteIndex(f, frame);
+  const sw = img.naturalWidth / 4;
+  const sh = img.naturalHeight / 3;
+  const sx = (index % 4) * sw;
+  const sy = Math.floor(index / 4) * sh;
+  const cellH = 140 * scale;
+  const cellW = cellH * (sw / sh);
+  const bottomPad = cellH * 0.1;
+  const p = poseOf(f, frame);
+  let alpha = p.alpha;
+  if (f.invuln > 0 && Math.floor(frame / 4) % 2 === 0) alpha *= 0.45;
+
+  g.save();
+  g.translate(f.x, f.z - f.y);
+  g.globalAlpha = Math.max(0.05, alpha);
+  if (f.state === 'explode') {
+    const k = Math.min(1, f.stateTimer / 12);
+    g.fillStyle = `rgba(255,90,30,${0.25 * k})`;
+    g.beginPath(); g.arc(0, -52 * scale, (58 + k * 34) * scale, 0, 7); g.fill();
+  }
+
+  g.translate(p.jitter * scale, (p.bob + p.crouch) * scale);
+  if (p.rot) {
+    const pivotY = f.state === 'lying' ? -18 * scale : -48 * scale;
+    g.translate(0, pivotY); g.rotate(p.rot); g.translate(0, -pivotY);
+  }
+  g.scale(f.facing, 1);
+  const smoothing = g.imageSmoothingEnabled;
+  const filter = g.filter;
+  g.imageSmoothingEnabled = true;
+  if (f.hitFlash > 0 && 'filter' in g) g.filter = 'brightness(0) saturate(0) invert(1)';
+  g.drawImage(img, sx, sy, sw, sh, -cellW / 2, -cellH + bottomPad, cellW, cellH);
+  g.imageSmoothingEnabled = smoothing;
+  if ('filter' in g) g.filter = filter || 'none';
+
+  if (f.weapon) drawHeldWeapon(g, f.weapon.kind, 25 * scale, -57 * scale, 1.15);
+  g.restore();
+
+  if (f.state === 'frozen') {
+    g.save();
+    g.translate(f.x, f.z - f.y);
+    g.globalAlpha = 0.5 * alpha; g.fillStyle = '#a8d8f8';
+    rr(g, -31 * scale, -108 * scale, 62 * scale, 112 * scale, 10); g.fill();
+    g.globalAlpha = 0.9 * alpha; g.strokeStyle = '#e8f6ff'; g.lineWidth = 2;
+    rr(g, -31 * scale, -108 * scale, 62 * scale, 112 * scale, 10); g.stroke();
+    g.beginPath();
+    g.moveTo(-14 * scale, -96 * scale); g.lineTo(-3 * scale, -66 * scale);
+    g.lineTo(-12 * scale, -36 * scale); g.stroke();
+    g.restore();
+  }
+  return true;
+}
+
+function drawFighter(g, f, frame, scale = 1) {
+  if (!drawAtlasFighter(g, f, frame, scale)) drawFighterLegacy(g, f, frame, scale);
+}
+
+// 圖片尚未載入或資產失敗時的舊版 Canvas fallback。
 const PIX = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 if (PIX) { PIX.width = 112; PIX.height = 104; }
 
-function drawFighter(g, f, frame, scale = 1) {
+function drawFighterLegacy(g, f, frame, scale = 1) {
   const c = f.c;
   const p = poseOf(f, frame);
   const flash = f.hitFlash > 0;
@@ -471,77 +583,79 @@ function drawProj(g, p, frame) {
 
 /* ============ HUD ============ */
 function drawHUD(g, eng) {
-  const slot = [0, 0];
-  for (const f of eng.fighters) {
-    const left = f.team === 0;
-    const n = slot[f.team]++;
-    const cardW = 308;
-    const cardH = 54;
-    const bx = left ? 16 : W - 16 - cardW;
-    const by = 14 + n * 60;
-    const accent = left ? '#e8684a' : '#4b8fd8';
+  const red = '#e52b2d';
+  const blue = '#1657c8';
+  const cream = '#f7f0df';
+  const teams = [eng.fighters.filter(f => f.team === 0), eng.fighters.filter(f => f.team === 1)];
 
-    g.fillStyle = 'rgba(9,14,30,.88)';
-    rr(g, bx, by, cardW, cardH, 7); g.fill();
-    g.strokeStyle = 'rgba(244,234,214,.18)';
-    g.lineWidth = 1;
-    rr(g, bx + .5, by + .5, cardW - 1, cardH - 1, 7); g.stroke();
-    g.fillStyle = accent;
-    g.fillRect(left ? bx : bx + cardW - 4, by + 7, 4, cardH - 14);
+  g.save();
+  g.fillStyle = 'rgba(6,6,9,.88)';
+  g.fillRect(0, 0, W, 108);
+  drawUiTexture(g, 0.2);
 
-    const px = left ? bx + 28 : bx + cardW - 28;
-    g.save(); g.beginPath(); g.arc(px, by + 27, 18, 0, 7); g.clip();
-    g.fillStyle = '#25304c'; g.fillRect(px - 20, by + 7, 40, 40);
-    g.fillStyle = f.c.skin; g.beginPath(); g.arc(px, by + 31, 13, 0, 7); g.fill();
-    g.fillStyle = f.c.hair; g.beginPath(); g.arc(px, by + 25, 13, Math.PI * 0.9, Math.PI * 2.1); g.fill();
-    g.fillStyle = '#3a2a20';
-    g.beginPath(); g.arc(px - 4.5, by + 32, 1.4, 0, 7); g.fill();
-    g.beginPath(); g.arc(px + 4.5, by + 32, 1.4, 0, 7); g.fill();
-    g.restore();
+  teams.forEach((members, team) => {
+    const left = team === 0;
+    const accent = left ? red : blue;
+    const main = members[0];
+    if (!main) return;
+    const x = left ? 14 : W - 354;
+    const y = 12;
+    const w = 340;
 
-    g.strokeStyle = f.isAI ? '#8490a8' : accent;
-    g.lineWidth = 2;
-    g.beginPath(); g.arc(px, by + 27, 18, 0, 7); g.stroke();
-
-    const tag = f.isAI ? 'CPU' : `P${f.pid + 1}`;
-    const tx = left ? bx + 54 : bx + cardW - 54;
-    g.fillStyle = '#f4ead6';
-    g.font = '700 12px system-ui, "PingFang TC", sans-serif';
+    cutPanel(g, x, y, w, 76, 'rgba(8,8,12,.96)', 24);
+    cutPanel(g, left ? x : x + 10, y, w - 10, 16, accent, 10);
+    g.fillStyle = cream;
     g.textAlign = left ? 'left' : 'right';
-    g.fillText(`${f.c.name}  ·  ${tag}`, tx, by + 15);
+    g.font = '950 18px Impact, "Arial Narrow", system-ui, sans-serif';
+    g.fillText(`${main.c.name.toUpperCase()} · ${main.isAI ? 'CPU' : 'P' + (main.pid + 1)}`, left ? x + 18 : x + w - 18, y + 38);
 
-    const barW = 238;
-    const hx = left ? bx + 54 : bx + cardW - 54 - barW;
-    g.fillStyle = '#291b20'; rr(g, hx, by + 22, barW, 11, 3); g.fill();
-    const rec = Math.max(0, f.hpRec / HP_MAX), hp = Math.max(0, f.hp / HP_MAX);
-    const w2 = barW;
-    g.fillStyle = '#7a2a24';
-    if (rec > 0) { rr(g, left ? hx : hx + w2 * (1 - rec), by + 22, w2 * rec, 11, 3); g.fill(); }
-    g.fillStyle = hp > 0.3 ? '#e8684a' : '#ff4b36';
-    if (hp > 0) { rr(g, left ? hx : hx + w2 * (1 - hp), by + 22, w2 * hp, 11, 3); g.fill(); }
-    g.fillStyle = '#172138'; rr(g, hx, by + 38, w2, 7, 2); g.fill();
-    const mp = f.mp / MP_MAX;
-    g.fillStyle = '#4b8fd8';
-    if (mp > 0) { rr(g, left ? hx : hx + w2 * (1 - mp), by + 38, w2 * mp, 7, 2); g.fill(); }
+    const hp = Math.max(0, main.hp / HP_MAX);
+    const mp = Math.max(0, main.mp / MP_MAX);
+    const bx = x + 18;
+    const bw = w - 36;
+    g.fillStyle = '#2c2c31';
+    g.fillRect(bx, y + 48, bw, 12);
+    g.fillStyle = red;
+    g.fillRect(left ? bx : bx + bw * (1 - hp), y + 48, bw * hp, 12);
+    g.fillStyle = '#242b3c';
+    g.fillRect(bx, y + 64, bw, 6);
+    g.fillStyle = blue;
+    g.fillRect(left ? bx : bx + bw * (1 - mp), y + 64, bw * mp, 6);
 
-    if (f.weapon) {
-      g.save(); g.translate(left ? bx + cardW - 17 : bx + 17, by + 43); g.scale(0.66, 0.66);
-      weaponShape(g, f.weapon.kind);
-      g.restore();
+    if (members.length > 1) {
+      members.slice(1).forEach((f, i) => {
+        const sy = 92 + i * 18;
+        const shp = Math.max(0, f.hp / HP_MAX);
+        g.fillStyle = 'rgba(6,6,9,.86)';
+        g.fillRect(x + 12, sy, w - 24, 14);
+        g.fillStyle = accent;
+        g.fillRect(left ? x + 12 : x + 12 + (w - 24) * (1 - shp), sy, (w - 24) * shp, 3);
+        g.fillStyle = cream;
+        g.font = '800 9px "Arial Narrow", system-ui, sans-serif';
+        g.textAlign = left ? 'left' : 'right';
+        g.fillText(`${f.c.name.toUpperCase()} · ${f.isAI ? 'CPU' : 'P' + (f.pid + 1)}`, left ? x + 18 : x + w - 18, sy + 11);
+      });
     }
-  }
+  });
 
-  g.fillStyle = 'rgba(9,14,30,.9)';
-  rr(g, W / 2 - 54, 14, 108, 38, 6); g.fill();
-  g.strokeStyle = 'rgba(244,207,118,.35)';
-  rr(g, W / 2 - 53.5, 14.5, 107, 37, 6); g.stroke();
+  const seconds = Math.max(0, 99 - Math.floor(eng.frame / 60));
+  g.fillStyle = '#050507';
+  g.beginPath();
+  g.arc(W / 2, 46, 54, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = seconds < 15 ? red : '#f3c533';
+  g.lineWidth = 5;
+  g.beginPath();
+  g.arc(W / 2, 46, 50, 0, Math.PI * 2);
+  g.stroke();
   g.textAlign = 'center';
-  g.fillStyle = '#f4cf76';
-  g.font = '800 9px system-ui, "PingFang TC", sans-serif';
-  g.fillText('BATTLE', W / 2, 28);
-  g.fillStyle = '#f4ead6';
-  g.font = '800 13px system-ui, "PingFang TC", sans-serif';
-  g.fillText('TEAM  A  /  B', W / 2, 44);
+  g.fillStyle = '#f3c533';
+  g.font = '900 8px "Arial Narrow", system-ui, sans-serif';
+  g.fillText('BATTLE / TEAM A · B', W / 2, 25);
+  g.fillStyle = cream;
+  g.font = '950 42px Impact, "Arial Narrow", system-ui, sans-serif';
+  g.fillText(String(seconds).padStart(2, '0'), W / 2, 66);
+  g.restore();
 }
 
 function drawBanner(g, eng, frame) {
@@ -552,16 +666,45 @@ function drawBanner(g, eng, frame) {
   const pop = Math.min(1, age / 8);
   const alpha = isKO ? 1 : Math.min(1, b.t / 14);
   g.save();
-  g.translate(W / 2, 180);
+  g.translate(W / 2, 208);
   g.scale(0.6 + pop * 0.4 + (isKO ? Math.sin(frame * 0.12) * 0.03 : 0), 0.6 + pop * 0.4);
   g.globalAlpha = alpha;
-  g.font = '900 84px system-ui, "PingFang TC", sans-serif';
+  cutPanel(g, -280, -74, 250, 68, '#e52b2d', 28);
+  cutPanel(g, 30, -74, 250, 68, '#1657c8', 28);
+  g.font = '950 92px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
   g.textAlign = 'center';
-  g.lineWidth = 10; g.strokeStyle = '#2a1408'; g.strokeText(b.text, 0, 0);
-  const grad = g.createLinearGradient(0, -60, 0, 20);
-  grad.addColorStop(0, isKO ? '#ffd23e' : '#fff'); grad.addColorStop(1, isKO ? '#ff5a1f' : '#ffd23e');
-  g.fillStyle = grad; g.fillText(b.text, 0, 0);
+  g.lineWidth = 12;
+  g.strokeStyle = '#07070a';
+  g.strokeText(b.text, 0, 0);
+  g.fillStyle = isKO ? '#f3c533' : '#f7f0df';
+  g.fillText(b.text, 0, 0);
   g.restore();
+}
+
+function drawFightCommandRail(g) {
+  const cmds = [
+    ['WASD / 方向鍵', '移動'],
+    ['J / ,', '攻擊'],
+    ['K / .', '跳躍'],
+    ['L / /', '防禦'],
+    ['P', '暫停'],
+    ['ESC', '離開'],
+  ];
+  g.fillStyle = 'rgba(5,5,8,.95)';
+  g.fillRect(0, H - 46, W, 46);
+  cmds.forEach((cmd, i) => {
+    const x = i * (W / cmds.length);
+    const accent = i % 2 ? '#1657c8' : '#e52b2d';
+    g.fillStyle = accent;
+    g.fillRect(x, H - 46, W / cmds.length, 4);
+    g.fillStyle = '#f7f0df';
+    g.font = '900 10px "Arial Narrow", system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.fillText(cmd[0], x + W / cmds.length / 2, H - 25);
+    g.fillStyle = 'rgba(247,240,223,.62)';
+    g.font = '700 8px "PingFang TC", system-ui, sans-serif';
+    g.fillText(cmd[1], x + W / cmds.length / 2, H - 11);
+  });
 }
 
 /* ============ 戰鬥畫面總成 ============ */
@@ -624,14 +767,28 @@ function drawFight(g, eng, frame) {
 
   drawHUD(g, eng);
   drawBanner(g, eng, frame);
+  drawFightCommandRail(g);
 
   if (eng.over && eng.winText) {
-    g.fillStyle = 'rgba(12,8,16,.55)'; g.fillRect(0, H / 2 - 4, W, 130);
+    g.fillStyle = 'rgba(5,5,8,.86)'; g.fillRect(0, 118, W, 330);
+    drawUiTexture(g, 0.28);
+    cutPanel(g, 0, 164, W * 0.57, 156, '#e52b2d', 42);
+    cutPanel(g, W * 0.47, 164, W * 0.53, 156, '#1657c8', 42);
     g.textAlign = 'center';
-    g.fillStyle = '#ffd23e'; g.font = 'bold 40px system-ui, "PingFang TC", sans-serif';
-    g.fillText(eng.winText, W / 2, H / 2 + 46);
-    g.fillStyle = '#e8e0d0'; g.font = '17px system-ui, "PingFang TC", sans-serif';
-    g.fillText('R — 再戰一場      Enter — 重選角色', W / 2, H / 2 + 86);
+    g.fillStyle = '#f3c533';
+    g.font = '900 11px "Arial Narrow", system-ui, sans-serif';
+    g.fillText('MATCH RESULT / FINAL CALL', W / 2, 155);
+    g.fillStyle = '#f7f0df';
+    g.font = '950 54px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    g.lineWidth = 8;
+    g.strokeStyle = '#050507';
+    g.strokeText(eng.winText, W / 2, 250);
+    g.fillText(eng.winText, W / 2, 250);
+    g.fillStyle = '#050507';
+    g.fillRect(W / 2 - 236, 338, 472, 52);
+    g.fillStyle = '#f7f0df';
+    g.font = '800 14px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    g.fillText('R  再戰一場      ENTER  重選角色', W / 2, 370);
   }
   g.restore();
 }
@@ -642,75 +799,73 @@ function drawTitle(g, frame, demoFighters) {
   g.drawImage(skyCache, 0, 0);
   g.drawImage(midCache, 0, 0);
   g.drawImage(groundCache, 0, 300);
-  g.fillStyle = 'rgba(8,12,28,.58)'; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(5,5,8,.7)';
+  g.fillRect(0, 0, W, H);
+  drawUiTexture(g, 0.56);
 
-  for (const f of demoFighters) drawFighter(g, f, frame, 1.3);
+  for (const f of demoFighters) {
+    const oldX = f.x, oldZ = f.z;
+    f.x = f.pid === 0 ? 690 : 835;
+    f.z = 365;
+    drawFighter(g, f, frame, 1.85);
+    f.x = oldX;
+    f.z = oldZ;
+  }
 
+  cutPanel(g, 0, 0, 620, 126, '#e52b2d', 44);
+  cutPanel(g, 0, 126, 535, 174, '#f7f0df', 54);
   g.textAlign = 'left';
-  g.fillStyle = '#f4cf76';
-  g.font = '800 11px system-ui, "PingFang TC", sans-serif';
-  g.fillText('100 DAYS VIBE CODING  ·  DAY 4', 52, 52);
-  g.fillStyle = '#f4ead6';
-  g.font = '900 60px system-ui, "PingFang TC", sans-serif';
-  g.fillText('小朋友齊打交', 50, 116);
-  g.fillStyle = '#e8684a';
-  g.font = '800 17px system-ui, "PingFang TC", sans-serif';
-  g.fillText('LITTLE FIGHTERS TRIBUTE', 54, 145);
-  g.fillStyle = 'rgba(244,234,214,.78)';
-  g.font = '14px system-ui, "PingFang TC", sans-serif';
-  g.fillText('原創美術 · 經典招式 · 2.5D 群架', 54, 172);
+  g.fillStyle = '#f3c533';
+  g.font = '900 12px "Arial Narrow", system-ui, sans-serif';
+  g.fillText('100 DAYS VIBE CODING · DAY 4 · FIGHT NIGHT', 34, 34);
+  g.fillStyle = '#f7f0df';
+  g.font = '950 44px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+  g.fillText('小朋友齊打交', 34, 90);
+  g.fillStyle = '#09090d';
+  g.font = '950 58px Impact, "Arial Narrow", system-ui, sans-serif';
+  g.fillText('LITTLE FIGHTERS', 34, 205);
+  g.fillStyle = '#1657c8';
+  g.font = '950 34px Impact, "Arial Narrow", system-ui, sans-serif';
+  g.fillText('ORIGINAL ROSTER / TOURNAMENT', 36, 248);
+  g.fillStyle = '#35343b';
+  g.font = '800 12px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+  g.fillText('原創角色美術 · 五名選手 · 經典必殺輸入', 38, 278);
 
   const modes = [
-    ['1', '單人對決', '你  VS  電腦'],
-    ['2', '雙人對決', 'P1  VS  P2'],
-    ['3', '單人 2v2', '你＋隊友  VS  電腦'],
-    ['4', '雙人 2v2', 'P1＋P2  VS  電腦'],
+    ['1', '單人對決', 'PLAYER  VS  CPU'],
+    ['2', '雙人對決', 'PLAYER  VS  PLAYER'],
+    ['3', '單人 2v2', 'PLAYER TEAM  VS  CPU'],
+    ['4', '雙人 2v2', 'DUO TEAM  VS  CPU'],
   ];
+  g.fillStyle = '#050507';
+  g.fillRect(0, 352, W, 144);
   modes.forEach((m, i) => {
-    const col = i % 2, row = Math.floor(i / 2);
-    const x = 444 + col * 242, y = 64 + row * 92;
-    g.fillStyle = 'rgba(9,14,30,.86)';
-    rr(g, x, y, 226, 76, 8); g.fill();
-    g.strokeStyle = 'rgba(244,234,214,.2)';
-    rr(g, x + .5, y + .5, 225, 75, 8); g.stroke();
-    g.fillStyle = i % 2 ? '#4b8fd8' : '#e8684a';
-    g.fillRect(x, y + 10, 4, 56);
-    g.fillStyle = '#f4cf76';
-    g.font = '900 21px system-ui, sans-serif';
-    g.textAlign = 'center';
-    g.fillText(m[0], x + 30, y + 45);
+    const x = 18 + i * 234;
+    const color = i % 2 ? '#1657c8' : '#e52b2d';
+    cutPanel(g, x, 368, 222, 92, color, 22);
+    g.fillStyle = '#f3c533';
+    g.font = '950 31px Impact, "Arial Narrow", system-ui, sans-serif';
     g.textAlign = 'left';
-    g.fillStyle = '#f4ead6';
-    g.font = '800 16px system-ui, "PingFang TC", sans-serif';
-    g.fillText(m[1], x + 58, y + 31);
-    g.fillStyle = 'rgba(244,234,214,.62)';
-    g.font = '11px system-ui, "PingFang TC", sans-serif';
-    g.fillText(m[2], x + 58, y + 51);
+    g.fillText(m[0], x + 18, 407);
+    g.fillStyle = '#f7f0df';
+    g.font = '900 16px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    g.fillText(m[1], x + 55, 404);
+    g.font = '800 9px "Arial Narrow", system-ui, sans-serif';
+    g.fillText(m[2], x + 55, 426);
+    g.fillStyle = 'rgba(5,5,7,.54)';
+    g.fillRect(x + 12, 441, 188, 4);
   });
 
-  g.fillStyle = 'rgba(9,14,30,.88)';
-  rr(g, 40, 404, 880, 94, 8); g.fill();
-  g.fillStyle = '#f4cf76';
-  g.font = '800 10px system-ui, "PingFang TC", sans-serif';
-  g.textAlign = 'left';
-  g.fillText('PLAYER 1', 64, 430);
-  g.fillStyle = '#f4ead6';
-  g.font = '700 13px system-ui, "PingFang TC", sans-serif';
-  g.fillText('WASD  移動     J  攻擊     K  跳躍     L  防禦', 64, 455);
-  g.fillStyle = '#4b8fd8';
-  g.font = '800 10px system-ui, "PingFang TC", sans-serif';
-  g.fillText('PLAYER 2', 520, 430);
-  g.fillStyle = '#f4ead6';
-  g.font = '700 13px system-ui, "PingFang TC", sans-serif';
-  g.fillText('方向鍵  移動     ,  攻擊     .  跳躍     /  防禦', 520, 455);
+  g.fillStyle = '#f7f0df';
+  g.fillRect(0, 496, W, 44);
+  g.fillStyle = '#09090d';
+  g.font = '900 11px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
   g.textAlign = 'center';
-  g.fillStyle = 'rgba(244,234,214,.58)';
-  g.font = '11px system-ui, "PingFang TC", sans-serif';
-  g.fillText('按 1–4 選擇模式　·　防禦＋方向＋攻擊／跳躍施放絕招　·　M 音樂', W / 2, 520);
+  g.fillText('按 1–4 選擇賽制　　P1：WASD / J K L　　P2：方向鍵 / , . /　　M 音樂', W / 2, 523);
 }
 
 /* ============ 選角畫面 ============ */
-function drawSelect(g, sel, frame, previews) {
+function drawSelectLegacy(g, sel, frame, previews) {
   if (!skyCache) buildStage();
   g.drawImage(skyCache, 0, 0);
   g.drawImage(midCache, 0, 0);
@@ -751,7 +906,7 @@ function drawSelect(g, sel, frame, previews) {
     g.fillStyle = '#f4ead6'; g.fillText(c.name, x + cw / 2, y + 174);
     g.font = '12px system-ui, "PingFang TC", sans-serif';
     g.fillStyle = '#f4cf76'; g.fillText(c.zh, x + cw / 2, y + 194);
-    // 招式表(原作指令);招多的角色(Woody 6 招)壓縮成單行
+    // 招式較多的角色壓縮成單行
     const mvEntries = Object.entries(c.moves);
     const compact = mvEntries.length > 4;
     g.font = (compact ? '11px' : '12px') + ' system-ui, "PingFang TC", sans-serif';
@@ -790,6 +945,111 @@ function drawSelect(g, sel, frame, previews) {
   g.fillStyle = 'rgba(244,234,214,.5)';
   g.font = '11px system-ui, "PingFang TC", sans-serif';
   g.fillText('A / D 移動　·　J 確認　·　Esc 返回標題', W / 2, 494);
+}
+
+function drawSelect(g, sel, frame, previews) {
+  if (!skyCache) buildStage();
+  g.drawImage(skyCache, 0, 0);
+  g.drawImage(midCache, 0, 0);
+  g.drawImage(groundCache, 0, 300);
+  g.fillStyle = 'rgba(5,5,8,.78)';
+  g.fillRect(0, 0, W, H);
+  drawUiTexture(g, 0.54);
+
+  cutPanel(g, 0, 0, 585, 82, '#e52b2d', 38);
+  cutPanel(g, 570, 0, 390, 82, '#1657c8', 38);
+  g.fillStyle = '#f7f0df';
+  g.textAlign = 'left';
+  g.font = '950 35px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+  g.fillText('選擇你的選手', 28, 51);
+  g.textAlign = 'right';
+  g.font = '900 12px "Arial Narrow", system-ui, sans-serif';
+  g.fillText('FIGHTER SELECT / BUILD YOUR MATCH', W - 28, 48);
+
+  const p1 = CHARS[CHAR_KEYS[sel.p1Idx]];
+  const p2idx = sel.humans > 1 ? sel.p2Idx : (sel.cpuFlash >= 0 ? sel.cpuFlash : (sel.cpuKeys.length ? CHAR_KEYS.indexOf(sel.cpuKeys[0]) : (sel.p1Idx + 2) % NCHAR));
+  const p2 = CHARS[CHAR_KEYS[p2idx]];
+
+  const drawFeature = (side, idx, fighter, color, done, tag) => {
+    const left = side === 0;
+    const x = left ? 22 : 604;
+    cutPanel(g, x, 100, 334, 264, 'rgba(5,5,8,.94)', 26);
+    g.fillStyle = color;
+    g.fillRect(left ? x : x + 324, 100, 10, 264);
+    const pf = previews[idx];
+    const oldX = pf.x, oldZ = pf.z;
+    pf.x = left ? x + 86 : x + 248;
+    pf.z = 288;
+    pf.facing = left ? 1 : -1;
+    drawFighter(g, pf, frame, 1.85);
+    pf.x = oldX;
+    pf.z = oldZ;
+
+    g.textAlign = left ? 'left' : 'right';
+    const tx = left ? x + 164 : x + 170;
+    g.fillStyle = '#f3c533';
+    g.font = '900 10px "Arial Narrow", system-ui, sans-serif';
+    g.fillText(`${tag} / ${done ? 'READY' : 'SELECTING'}`, left ? tx : x + 170, 133);
+    g.fillStyle = '#f7f0df';
+    g.font = '950 35px Impact, "Arial Narrow", system-ui, sans-serif';
+    g.fillText(fighter.name.toUpperCase(), left ? tx : x + 170, 176);
+    g.fillStyle = color;
+    g.font = '900 17px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    g.fillText(fighter.zh, left ? tx : x + 170, 201);
+
+    const entries = Object.entries(fighter.moves).slice(0, 4);
+    g.fillStyle = 'rgba(247,240,223,.72)';
+    g.font = '800 10px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+    entries.forEach(([key, move], i) => {
+      const command = '防' + (key[0] === '>' ? '→' : key[0] === '^' ? '↑' : '↓') + (key[1] === 'A' ? '攻' : '跳');
+      g.fillText(`${command}  ${move.name}  ${move.mp}MP`, left ? tx : x + 170, 232 + i * 23);
+    });
+  };
+
+  drawFeature(0, sel.p1Idx, p1, '#e52b2d', sel.p1Done, 'PLAYER 1');
+  drawFeature(1, p2idx, p2, '#1657c8', sel.humans > 1 ? sel.p2Done : sel.cpuKeys.length > 0, sel.humans > 1 ? 'PLAYER 2' : 'CPU RIVAL');
+
+  g.fillStyle = '#f7f0df';
+  g.fillRect(0, 382, W, 110);
+  const stripX = 122;
+  CHAR_KEYS.forEach((key, i) => {
+    const c = CHARS[key];
+    const x = stripX + i * 146;
+    const p1on = sel.p1Idx === i;
+    const p2on = sel.humans > 1 && sel.p2Idx === i;
+    g.fillStyle = p1on ? '#e52b2d' : p2on ? '#1657c8' : '#111116';
+    g.fillRect(x, 396, 132, 72);
+    if (sel.cpuFlash === i) {
+      g.strokeStyle = '#f3c533';
+      g.lineWidth = 4;
+      g.strokeRect(x - 3, 393, 138, 78);
+    }
+    g.fillStyle = '#f7f0df';
+    g.font = '950 16px Impact, "Arial Narrow", system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.fillText(c.name.toUpperCase(), x + 66, 425);
+    g.fillStyle = 'rgba(247,240,223,.7)';
+    g.font = '800 10px "PingFang TC", system-ui, sans-serif';
+    g.fillText(c.zh, x + 66, 446);
+    g.fillStyle = '#f3c533';
+    g.fillRect(x + 14, 456, 104, 3);
+  });
+
+  let hint;
+  if (!sel.p1Done) hint = 'P1：A / D 選人　J 確認';
+  else if (sel.humans > 1 && !sel.p2Done) hint = 'P2：← / → 選人　, 確認';
+  else if (sel.cpuT > 0) hint = 'CPU 選手抽選中';
+  else if (sel.cpuKeys.length) hint = '對戰名單完成，準備開戰';
+  else hint = '準備開戰';
+  g.fillStyle = '#050507';
+  g.fillRect(0, 492, W, 48);
+  g.fillStyle = '#f3c533';
+  g.font = '900 12px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+  g.textAlign = 'center';
+  g.fillText(hint, W / 2, 515);
+  g.fillStyle = 'rgba(247,240,223,.58)';
+  g.font = '800 9px "Arial Narrow", system-ui, sans-serif';
+  g.fillText('ESC  RETURN TO TITLE', W / 2, 531);
 }
 
 /* ============ 音效 + BGM(WebAudio 即時生成,零音檔) ============ */

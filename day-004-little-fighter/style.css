@@ -1,46 +1,74 @@
 :root {
   color-scheme: dark;
-  --navy: #080d1c;
-  --cream: #f4ead6;
-  --gold: #f4cf76;
+  --ink: #050507;
+  --paper: #f7f0df;
+  --red: #e52b2d;
+  --blue: #1657c8;
+  --yellow: #f3c533;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(65, 53, 91, 0.3), transparent 44%),
-    var(--navy);
+  background: var(--ink) url("assets/ui-fighter-texture.webp") center / cover;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  content: "";
+  background: rgba(5, 5, 7, 0.72);
 }
 
 #wrap {
+  position: relative;
   width: 100%;
   height: 100%;
-  padding: 18px;
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 #game {
-  width: min(calc(100vw - 36px), 1120px, calc((100vh - 36px) * 960 / 540));
+  position: relative;
+  z-index: 1;
+  width: min(calc(100vw - 24px), 1200px, calc((100vh - 24px) * 960 / 540));
   height: auto;
   aspect-ratio: 960 / 540;
   display: block;
   background: #000;
-  border: 1px solid rgba(244, 207, 118, 0.3);
-  border-radius: 9px;
+  border: 3px solid var(--paper);
   box-shadow:
-    0 0 0 6px rgba(9, 14, 30, 0.72),
-    0 24px 70px rgba(0, 0, 0, 0.66);
+    -8px 8px 0 var(--red),
+    8px -8px 0 var(--blue),
+    0 24px 70px rgba(0, 0, 0, 0.72);
   cursor: default;
 }
 
-@media (max-width: 760px) {
-  #wrap { padding: 8px; }
-  #game { width: min(calc(100vw - 16px), calc((100vh - 16px) * 960 / 540)); }
+@media (max-width: 760px), (max-height: 520px) {
+  #wrap {
+    padding: 5px;
+  }
+
+  #game {
+    width: min(calc(100vw - 10px), calc((100vh - 10px) * 960 / 540));
+    border-width: 1px;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
 }

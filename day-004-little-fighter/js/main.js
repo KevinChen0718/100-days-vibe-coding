@@ -16,7 +16,7 @@ const sel = { mode: 1, humans: 1, p1Idx: 0, p2Idx: 3, p1Done: false, p2Done: fal
 
 // 標題示範角色與選角預覽
 const demoFighters = [
-  new Fighter('davis', 150, 1, 0, 0), new Fighter('firen', 810, -1, 1, 1),
+  new Fighter('rook', 150, 1, 0, 0), new Fighter('ember', 810, -1, 1, 1),
 ];
 demoFighters.forEach(f => { f.z = 470; });
 const previews = CHAR_KEYS.map((k, i) => new Fighter(k, 0, 1, i, i % 2));
@@ -174,19 +174,25 @@ function loop(now) {
   else if (screen === 'fight' && eng) {
     drawFight(g, eng, gframe);
     if (paused) {
-      g.fillStyle = 'rgba(7,11,26,.72)'; g.fillRect(0, 0, W, H);
-      g.fillStyle = 'rgba(9,14,30,.95)'; rr(g, W / 2 - 180, H / 2 - 72, 360, 144, 9); g.fill();
-      g.strokeStyle = 'rgba(244,207,118,.42)'; rr(g, W / 2 - 179.5, H / 2 - 71.5, 359, 143, 9); g.stroke();
+      g.fillStyle = 'rgba(5,5,8,.86)'; g.fillRect(0, 0, W, H);
+      drawUiTexture(g, 0.42);
+      cutPanel(g, 0, 158, 610, 190, '#e52b2d', 48);
+      cutPanel(g, 484, 158, 476, 190, '#1657c8', 48);
       g.textAlign = 'center';
-      g.fillStyle = '#f4cf76';
-      g.font = '800 10px system-ui, "PingFang TC", sans-serif';
-      g.fillText('MATCH PAUSED', W / 2, H / 2 - 34);
-      g.fillStyle = '#f4ead6';
-      g.font = '900 34px system-ui, "PingFang TC", sans-serif';
-      g.fillText('戰鬥暫停', W / 2, H / 2 + 6);
-      g.fillStyle = 'rgba(244,234,214,.66)';
-      g.font = '14px system-ui, "PingFang TC", sans-serif';
-      g.fillText('P  繼續戰鬥　·　Esc  回到標題', W / 2, H / 2 + 43);
+      g.fillStyle = '#f3c533';
+      g.font = '900 11px "Arial Narrow", system-ui, sans-serif';
+      g.fillText('MATCH INTERRUPTED / ROUND HOLD', W / 2, 142);
+      g.fillStyle = '#f7f0df';
+      g.font = '950 68px Impact, "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+      g.lineWidth = 10;
+      g.strokeStyle = '#050507';
+      g.strokeText('戰鬥暫停', W / 2, 258);
+      g.fillText('戰鬥暫停', W / 2, 258);
+      g.fillStyle = '#050507';
+      g.fillRect(W / 2 - 214, 294, 428, 44);
+      g.fillStyle = '#f7f0df';
+      g.font = '900 13px "Arial Narrow", system-ui, "PingFang TC", sans-serif';
+      g.fillText('P  繼續戰鬥　　ESC  回到標題', W / 2, 321);
     }
   }
   requestAnimationFrame(loop);

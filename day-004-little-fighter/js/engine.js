@@ -36,7 +36,7 @@ function makeInput() {
 
 class Fighter {
   constructor(key, x, facing, pid, team, isAI) {
-    this.key = key; this.c = CHARS[key]; this.pid = pid;
+    this.key = resolveCharKey(key); this.c = CHARS[this.key]; this.pid = pid;
     this.team = team || 0; this.isAI = !!isAI;
     this.x = x; this.z = (ZMIN + ZMAX) / 2; this.y = 0;
     this.vx = 0; this.vy = 0;
@@ -390,7 +390,7 @@ class Engine {
     if (f.stateTimer >= m.dur) this.setState(f, 'idle');
   }
 
-  // 躍擊(Davis):往前躍起飛踢
+  // ROOK 躍擊:往前躍起飛踢
   doLeapAtk(f) {
     const m = f.mv;
     if (f.stateTimer === 1) { f.vy = 8.5; this.sfx('whoosh'); }
@@ -399,7 +399,7 @@ class Engine {
     this.applyGravity(f, 'idle');
   }
 
-  // 迴旋掃腿(Woody):前後都打得到
+  // SHADE 迴旋掃腿:前後都打得到
   doTurnKick(f) {
     const m = f.mv;
     if (f.stateTimer >= 4 && f.stateTimer <= 16) {
@@ -408,7 +408,7 @@ class Engine {
     if (f.stateTimer >= 24) this.setState(f, 'idle');
   }
 
-  // 瞬身(Woody)
+  // SHADE 瞬身
   doTeleport(f) {
     if (f.stateTimer === 1) {
       this.burstParts(f.x, f.z - 40, '#cdb4f5', 10, 'spark');
@@ -433,7 +433,7 @@ class Engine {
     if (f.stateTimer >= 14) this.setState(f, 'idle');
   }
 
-  // 自爆(Firen):周圍大範圍擊飛,消耗自己 HP
+  // EMBER 自爆:周圍大範圍擊飛,消耗自己 HP
   doExplode(f) {
     if (f.stateTimer === 12) {
       this.shake = 12;
